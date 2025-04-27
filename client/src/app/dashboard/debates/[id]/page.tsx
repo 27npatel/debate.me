@@ -21,15 +21,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { toast } from "sonner";
-
-// Mock user data
-const user = {
-  id: "user1",
-  name: "John Doe",
-  email: "john@example.com",
-  language: "en",
-  image: "",
-};
+import { useAuth } from "@/lib/auth-context";
 
 // Mock debate data
 const mockDebates = {
@@ -125,15 +117,13 @@ const mockDebates = {
 
 export default function DebatePage() {
   const params = useParams();
+  const { user } = useAuth();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-
-  // In a real app, you would fetch the debate data from an API
   const debate = mockDebates[id as keyof typeof mockDebates];
-
   const [messages, setMessages] = useState(debate?.messages || []);
   const [newMessage, setNewMessage] = useState("");
   const [isMuted, setIsMuted] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState(user.language);
+  const [selectedLanguage, setSelectedLanguage] = useState(user?.preferredLanguage || "en");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom when messages change
@@ -141,7 +131,35 @@ export default function DebatePage() {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]); // We need messages in the dependency array to scroll when messages change
+  }, [messages]);
+
+  if (!user) {
+    return (
+      <DashboardLayout user={{
+        _id: "",
+        username: "",
+        name: "",
+        email: "",
+        preferredLanguage: "en",
+        bio: "",
+        location: "",
+        avatar: "",
+        interests: [],
+        socialLinks: {},
+        rating: 0,
+        debateStats: { won: 0, lost: 0, drawn: 0 },
+        createdAt: "",
+        lastActive: ""
+      }}>
+        <div className="flex h-[80vh] items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">Please log in</h1>
+            <p className="text-muted-foreground">You need to be logged in to view debates.</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   // Function to handle sending a new message
   const handleSendMessage = (e: React.FormEvent) => {
@@ -150,7 +168,7 @@ export default function DebatePage() {
 
     const newMsg = {
       id: `msg${messages.length + 1}`,
-      userId: user.id,
+      userId: user._id,
       userName: user.name,
       userLanguage: selectedLanguage,
       text: newMessage,
@@ -233,9 +251,9 @@ export default function DebatePage() {
                   {messages.map(message => (
                     <div
                       key={message.id}
-                      className={`flex gap-3 ${message.userId === user.id ? 'justify-end' : ''}`}
+                      className={`flex gap-3 ${message.userId === user._id ? 'justify-end' : ''}`}
                     >
-                      {message.userId !== user.id && (
+                      {message.userId !== user._id && (
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={""} alt={message.userName} />
                           <AvatarFallback className="bg-primary/10 text-xs">
@@ -243,7 +261,7 @@ export default function DebatePage() {
                           </AvatarFallback>
                         </Avatar>
                       )}
-                      <div className={`max-w-[80%] space-y-1 ${message.userId === user.id ? 'items-end' : 'items-start'}`}>
+                      <div className={`max-w-[80%] space-y-1 ${message.userId === user._id ? 'items-end' : 'items-start'}`}>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium">{message.userName}</span>
                           <Badge variant="outline" className="text-xs">
@@ -256,7 +274,7 @@ export default function DebatePage() {
                         </div>
                         <div
                           className={`rounded-lg px-4 py-2 ${
-                            message.userId === user.id
+                            message.userId === user._id
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-muted'
                           }`}
@@ -276,11 +294,11 @@ export default function DebatePage() {
                           })}
                         </span>
                       </div>
-                      {message.userId === user.id && (
+                      {message.userId === user._id && (
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={""} alt={message.userName} />
+                          <AvatarImage src={user.avatar} alt={user.name} />
                           <AvatarFallback className="bg-primary/10 text-xs">
-                            {message.userName[0]}
+                            {user.name[0]}
                           </AvatarFallback>
                         </Avatar>
                       )}
@@ -371,7 +389,7 @@ export default function DebatePage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={user.image} alt={user.name} />
+                        <AvatarImage src={user.avatar} alt={user.name} />
                         <AvatarFallback className="bg-primary/10 text-xs">
                           {user.name[0]}
                         </AvatarFallback>

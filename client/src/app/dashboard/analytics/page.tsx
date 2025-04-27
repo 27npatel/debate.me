@@ -9,15 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart, PieChart, Clock, Globe, Users, MessageSquare, Languages, TrendingUp, Calendar } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-
-// Mock user data
-const user = {
-  name: "John Doe",
-  email: "john@example.com",
-  language: "en",
-  image: "",
-  joinDate: "March 2023",
-};
+import { useAuth } from "@/lib/auth-context";
 
 // Mock analytics data
 const analyticsData = {
@@ -116,12 +108,23 @@ const timePeriods = [
   { value: "all", label: "All Time" },
 ];
 
+interface ChartData {
+  month: string;
+  count?: number;
+  hours?: number;
+}
+
+interface DistributionData {
+  [key: string]: string | number;
+}
+
 export default function AnalyticsPage() {
+  const { user } = useAuth();
   const [timePeriod, setTimePeriod] = useState("all");
 
   // Function to create bar chart
-  const renderBarChart = (data: { month: string; count: number }[] | { month: string; hours: number }[], title: string, subtitle: string, color: string) => {
-    const maxValue = Math.max(...data.map(item => 'count' in item ? item.count : item.hours));
+  const renderBarChart = (data: ChartData[], title: string, subtitle: string, color: string) => {
+    const maxValue = Math.max(...data.map(item => item.count || item.hours || 0));
 
     return (
       <div className="space-y-3">
@@ -131,7 +134,7 @@ export default function AnalyticsPage() {
         </div>
         <div className="space-y-2">
           {data.map((item) => {
-            const value = 'count' in item ? item.count : item.hours;
+            const value = item.count || item.hours || 0;
             const percentage = (value / maxValue) * 100;
 
             return (
@@ -155,23 +158,23 @@ export default function AnalyticsPage() {
   };
 
   // Function to create pie chart (simplified visual representation)
-  const renderDistributionChart = (data: { [key: string]: any; }[], labelKey: string, valueKey: string, title: string, maxItems = 5) => {
-    const total = data.reduce((sum, item) => sum + item[valueKey], 0);
-    const sortedData = [...data].sort((a, b) => b[valueKey] - a[valueKey]).slice(0, maxItems);
+  const renderDistributionChart = (data: DistributionData[], labelKey: string, valueKey: string, title: string, maxItems = 5) => {
+    const total = data.reduce((sum, item) => sum + (item[valueKey] as number), 0);
+    const sortedData = [...data].sort((a, b) => (b[valueKey] as number) - (a[valueKey] as number)).slice(0, maxItems);
 
     return (
       <div className="space-y-3">
         <h3 className="text-sm font-medium">{title}</h3>
         <div className="space-y-2">
           {sortedData.map((item) => {
-            const percentage = Math.round((item[valueKey] / total) * 100);
+            const percentage = Math.round(((item[valueKey] as number) / total) * 100);
 
             return (
-              <div key={item[labelKey]} className="space-y-1">
+              <div key={item[labelKey] as string} className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1">
                     <div className="h-2 w-2 rounded-full bg-primary" />
-                    {item[labelKey]}
+                    {item[labelKey] as string}
                   </span>
                   <span>{percentage}%</span>
                 </div>
@@ -188,6 +191,34 @@ export default function AnalyticsPage() {
       </div>
     );
   };
+
+  if (!user) {
+    return (
+      <DashboardLayout user={{
+        _id: "",
+        username: "",
+        name: "",
+        email: "",
+        preferredLanguage: "en",
+        bio: "",
+        location: "",
+        avatar: "",
+        interests: [],
+        socialLinks: {},
+        rating: 0,
+        debateStats: { won: 0, lost: 0, drawn: 0 },
+        createdAt: "",
+        lastActive: ""
+      }}>
+        <div className="flex h-[80vh] items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">Please log in</h1>
+            <p className="text-muted-foreground">You need to be logged in to view analytics.</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout user={user}>
@@ -261,7 +292,7 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="text-2xl font-bold">{analyticsData.timeSpent.total} hrs</div>
               <p className="text-xs text-muted-foreground">
-                Since joining in {user.joinDate}
+                Since joining in {new Date(user.createdAt).toLocaleDateString('default', { month: 'long', year: 'numeric' })}
               </p>
             </CardContent>
           </Card>

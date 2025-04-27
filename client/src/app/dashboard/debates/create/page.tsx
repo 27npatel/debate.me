@@ -27,14 +27,7 @@ import {
 } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-
-// Mock user data
-const user = {
-  name: "John Doe",
-  email: "john@example.com",
-  language: "en",
-  image: "",
-};
+import { useAuth } from "@/lib/auth-context";
 
 // List of languages
 const availableLanguages = [
@@ -76,6 +69,7 @@ const availableTopics = [
 
 export default function CreateDebatePage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -86,6 +80,34 @@ export default function CreateDebatePage() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  if (!user) {
+    return (
+      <DashboardLayout user={{
+        _id: "",
+        username: "",
+        name: "",
+        email: "",
+        preferredLanguage: "en",
+        bio: "",
+        location: "",
+        avatar: "",
+        interests: [],
+        socialLinks: {},
+        rating: 0,
+        debateStats: { won: 0, lost: 0, drawn: 0 },
+        createdAt: "",
+        lastActive: ""
+      }}>
+        <div className="flex h-[80vh] items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">Please log in</h1>
+            <p className="text-muted-foreground">You need to be logged in to create a debate.</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const handleLanguageToggle = (languageCode: string) => {
     if (selectedLanguages.includes(languageCode)) {

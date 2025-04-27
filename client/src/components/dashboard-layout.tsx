@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "./mode-toggle";
+import { useAuth } from "@/lib/auth-context";
 
 interface NavItemProps {
   href: string;
@@ -61,16 +62,35 @@ function NavItem({ href, icon, title, isActive, onClick }: NavItemProps) {
 interface DashboardLayoutProps {
   children: React.ReactNode;
   user: {
+    _id: string;
+    username: string;
     name: string;
     email: string;
-    image?: string;
-    language: string;
+    preferredLanguage: string;
+    bio: string;
+    location: string;
+    avatar: string;
+    interests: string[];
+    socialLinks: {
+      twitter?: string;
+      linkedin?: string;
+      website?: string;
+    };
+    rating: number;
+    debateStats: {
+      won: number;
+      lost: number;
+      drawn: number;
+    };
+    createdAt: string;
+    lastActive: string;
   };
 }
 
 export function DashboardLayout({ children, user }: DashboardLayoutProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { logout } = useAuth();
 
   const navItems = [
     {
@@ -159,7 +179,7 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
               <div className="border-t p-4">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={user.image} alt={user.name} />
+                    <AvatarImage src={user.avatar} alt={user.name} />
                     <AvatarFallback className="bg-primary/10 text-primary-foreground">
                       {user.name?.[0]?.toUpperCase() || "U"}
                     </AvatarFallback>
@@ -170,12 +190,10 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
                       {user.email}
                     </span>
                   </div>
-                  <Link href="/logout">
-                    <Button variant="ghost" size="icon">
-                      <LogOut className="h-5 w-5" />
-                      <span className="sr-only">Log out</span>
-                    </Button>
-                  </Link>
+                  <Button variant="ghost" size="icon" onClick={() => logout()}>
+                    <LogOut className="h-5 w-5" />
+                    <span className="sr-only">Log out</span>
+                  </Button>
                 </div>
               </div>
             </SheetContent>
@@ -191,7 +209,7 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.image} alt={user.name} />
+                  <AvatarImage src={user.avatar} alt={user.name} />
                   <AvatarFallback className="bg-primary/10 text-primary-foreground">
                     {user.name?.[0]?.toUpperCase() || "U"}
                   </AvatarFallback>
@@ -215,8 +233,8 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
                 <Link href="/dashboard/settings">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/logout">Log out</Link>
+              <DropdownMenuItem onClick={() => logout()}>
+                Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -246,7 +264,7 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
           <div className="absolute bottom-0 left-0 right-0 border-t p-4">
             <div className="flex items-center gap-2">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={user.image} alt={user.name} />
+                <AvatarImage src={user.avatar} alt={user.name} />
                 <AvatarFallback className="bg-primary/10 text-primary-foreground">
                   {user.name?.[0]?.toUpperCase() || "U"}
                 </AvatarFallback>
@@ -272,8 +290,8 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
                     <Link href="/dashboard/settings">Settings</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/logout">Log out</Link>
+                  <DropdownMenuItem onClick={() => logout()}>
+                    Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -291,7 +309,7 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.image} alt={user.name} />
+                      <AvatarImage src={user.avatar} alt={user.name} />
                       <AvatarFallback className="bg-primary/10 text-primary-foreground">
                         {user.name?.[0]?.toUpperCase() || "U"}
                       </AvatarFallback>
@@ -315,8 +333,8 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
                     <Link href="/dashboard/settings">Settings</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/logout">Log out</Link>
+                  <DropdownMenuItem onClick={() => logout()}>
+                    Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

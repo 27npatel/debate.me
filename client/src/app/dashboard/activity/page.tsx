@@ -10,14 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Clock, MessageSquare, UserPlus, Award, CheckCircle, ChevronRight, Globe, BarChart } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-
-// Mock user data
-const user = {
-  name: "John Doe",
-  email: "john@example.com",
-  language: "en",
-  image: "",
-};
+import { useAuth } from "@/lib/auth-context";
 
 // Mock activity data
 const activities = [
@@ -134,7 +127,36 @@ const filters = [
 ];
 
 export default function ActivityPage() {
+  const { user } = useAuth();
   const [filter, setFilter] = useState("all");
+
+  if (!user) {
+    return (
+      <DashboardLayout user={{
+        _id: "",
+        username: "",
+        name: "",
+        email: "",
+        preferredLanguage: "en",
+        bio: "",
+        location: "",
+        avatar: "",
+        interests: [],
+        socialLinks: {},
+        rating: 0,
+        debateStats: { won: 0, lost: 0, drawn: 0 },
+        createdAt: "",
+        lastActive: ""
+      }}>
+        <div className="flex h-[80vh] items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">Please log in</h1>
+            <p className="text-muted-foreground">You need to be logged in to view activity.</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   // Filter activities based on selected filter
   const filteredActivities = activities.filter(activity => {

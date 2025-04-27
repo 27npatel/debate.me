@@ -14,22 +14,39 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, Bell, Globe, Key, Lock, Mail, Shield, Smartphone, User, Trash2, Languages, Moon, Eye, EyeOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 
-// Mock user data
-const user = {
+// Mock user data for fallback
+const mockUser = {
+  _id: "1",
+  username: "johndoe",
   name: "John Doe",
   email: "john@example.com",
-  language: "en",
-  image: "",
+  preferredLanguage: "en",
+  bio: "Debate enthusiast",
+  location: "New York",
+  avatar: "",
+  interests: ["Technology", "Politics"],
+  socialLinks: {},
+  rating: 4.5,
+  debateStats: { won: 10, lost: 2, drawn: 3 },
+  createdAt: "2024-01-01T00:00:00.000Z",
+  lastActive: "2024-03-20T12:00:00.000Z"
 };
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const currentUser = user || mockUser;
+
   // Account Settings
   const [accountForm, setAccountForm] = useState({
-    email: user.email,
-    username: "johndoe",
-    password: "••••••••",
-    confirmPassword: "••••••••",
+    name: user?.name || "",
+    email: user?.email || "",
+    username: user?.username || "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
   });
 
   // Notification Settings
@@ -67,10 +84,27 @@ export default function SettingsPage() {
     showOriginalText: true,
   });
 
+  // Early return if no user
+  if (!user) {
+    return (
+      <DashboardLayout user={mockUser}>
+        <div className="flex h-[80vh] items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">Please log in</h1>
+            <p className="text-muted-foreground">You need to be logged in to view settings.</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   // Handle form input changes for account
   const handleAccountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setAccountForm(prev => ({ ...prev, [name]: value }));
+    setAccountForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   // Handle notification toggle
@@ -120,9 +154,57 @@ export default function SettingsPage() {
   };
 
   // Handle form submission
-  const handleSaveAccount = (e: React.FormEvent) => {
+  const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Account settings updated successfully");
+    
+    // Validate password if provided
+    if (accountForm.newPassword) {
+      if (accountForm.newPassword !== accountForm.confirmPassword) {
+        toast.error("New passwords do not match");
+        return;
+      }
+      
+      if (accountForm.newPassword.length < 8) {
+        toast.error("Password must be at least 8 characters long");
+        return;
+      }
+      
+      if (!accountForm.currentPassword) {
+        toast.error("Current password is required to set a new password");
+        return;
+      }
+    }
+    
+    try {
+      // Create data object for update
+      const updateData = {
+        name: accountForm.name,
+        username: accountForm.username,
+        // Only include password if changing it
+        ...(accountForm.newPassword && { password: accountForm.newPassword })
+      };
+      
+      console.log("Sending account update with data:", updateData);
+      const response = await api.updateProfile(updateData);
+      
+      if (response.success) {
+        toast.success("Account settings updated successfully");
+        if (accountForm.newPassword) {
+          toast.info("Password changed. Please log in again with your new password.");
+        }
+        
+        // Clear password fields
+        setAccountForm(prev => ({
+          ...prev,
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: ""
+        }));
+      }
+    } catch (error) {
+      toast.error("Failed to update account settings");
+      console.error("Account update error:", error);
+    }
   };
 
   // Handle delete account
@@ -162,6 +244,16 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={accountForm.name}
+                      onChange={handleAccountChange}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="email">Email Address</Label>
                     <Input
                       id="email"
@@ -196,8 +288,9 @@ export default function SettingsPage() {
                       id="current-password"
                       name="currentPassword"
                       type="password"
-                      value={accountForm.password}
+                      value={accountForm.currentPassword}
                       onChange={handleAccountChange}
+                      placeholder="Enter your current password"
                     />
                   </div>
 
@@ -208,6 +301,8 @@ export default function SettingsPage() {
                         id="new-password"
                         name="newPassword"
                         type="password"
+                        value={accountForm.newPassword}
+                        onChange={handleAccountChange}
                         placeholder="••••••••"
                       />
                     </div>
@@ -217,6 +312,8 @@ export default function SettingsPage() {
                         id="confirm-password"
                         name="confirmPassword"
                         type="password"
+                        value={accountForm.confirmPassword}
+                        onChange={handleAccountChange}
                         placeholder="••••••••"
                       />
                     </div>

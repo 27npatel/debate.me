@@ -23,13 +23,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/lib/auth-context";
 
 // Mock user data
-const user = {
+const mockUser = {
+  _id: "1",
+  username: "johndoe",
   name: "John Doe",
   email: "john@example.com",
-  language: "en",
-  languageName: "English"
+  preferredLanguage: "en",
+  bio: "Debate enthusiast",
+  location: "New York",
+  avatar: "",
+  interests: ["Technology", "Politics"],
+  socialLinks: {},
+  rating: 4.5,
+  debateStats: { won: 10, lost: 2, drawn: 3 },
+  createdAt: "2024-01-01T00:00:00.000Z",
+  lastActive: "2024-03-20T12:00:00.000Z"
 };
 
 // Mock debate data
@@ -131,6 +142,7 @@ const languages = [
 ];
 
 export default function DiscoverPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
@@ -185,7 +197,7 @@ export default function DiscoverPage() {
   };
 
   return (
-    <DashboardLayout user={user}>
+    <DashboardLayout user={user || mockUser}>
       <div className="space-y-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>

@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Languages, Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -30,6 +31,7 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -40,15 +42,16 @@ export default function LoginPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
-    // This would be replaced with actual API call in a real app
-    setTimeout(() => {
-      setIsLoading(false);
-      console.log(values);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      setIsLoading(true);
+      await login(values.email, values.password);
       toast.success("Logged in successfully!");
-      // Here you would normally redirect to dashboard
-    }, 1500);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -60,7 +63,7 @@ export default function LoginPage() {
           </div>
           <h1 className="text-3xl font-bold">Welcome Back</h1>
           <p className="text-muted-foreground">
-            Log in to your Langlobe account
+            Log in to your account
           </p>
         </div>
         <Form {...form}>

@@ -18,8 +18,13 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Languages, Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 const formSchema = z.object({
+  username: z.string()
+    .min(3, { message: "Username must be at least 3 characters." })
+    .max(30, { message: "Username must be less than 30 characters." })
+    .regex(/^[a-zA-Z0-9_]+$/, { message: "Username can only contain letters, numbers, and underscores." }),
   name: z.string().min(2, {
     message: "Name must be at least 2 characters.",
   }),
@@ -36,10 +41,12 @@ const formSchema = z.object({
 
 export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const { signup } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      username: "",
       name: "",
       email: "",
       password: "",
@@ -47,17 +54,16 @@ export default function SignupPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
-    // This would be replaced with actual API call in a real app
-    setTimeout(() => {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      setIsLoading(true);
+      await signup(values);
+      toast.success("Account created successfully!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Signup failed");
+    } finally {
       setIsLoading(false);
-      console.log(values);
-      toast.success("Account created successfully!", {
-        description: "You can now login with your credentials.",
-      });
-      form.reset();
-    }, 1500);
+    }
   }
 
   const languages = [
@@ -87,6 +93,19 @@ export default function SignupPage() {
         </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input placeholder="johndoe123" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="name"

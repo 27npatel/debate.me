@@ -5,6 +5,7 @@ import ClientBody from "./ClientBody";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster as SonnerToaster } from "sonner";
+import { AuthProvider } from "@/lib/auth-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,9 +39,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <ClientBody>{children}</ClientBody>
-          <Toaster />
-          <SonnerToaster position="top-right" />
+          <AuthProvider>
+            <ClientBody>{children}</ClientBody>
+            <Toaster />
+            <SonnerToaster position="top-right" />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

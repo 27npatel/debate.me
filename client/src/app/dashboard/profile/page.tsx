@@ -1,6 +1,5 @@
 "use client";
 
-import type React from "react";
 import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Button } from "@/components/ui/button";
@@ -8,215 +7,196 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Globe, Camera, Upload, AlertCircle, Award, CheckCircle, MessageSquare, Users, UserCircle, Clock as ClockIcon, Languages as LanguagesIcon, Tag } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
+import {
+  Globe,
+  Mail,
+  MapPin,
+  Calendar,
+  Award,
+  BarChart,
+  Settings,
+  Plus,
+  X,
+  Save,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-// Mock user data
-const user = {
-  id: "1",
-  name: "John Doe",
-  username: "johndoe",
-  email: "john@example.com",
-  bio: "Passionate about cross-cultural communication and learning new languages.",
-  preferredLanguage: "en",
-  location: "New York, USA",
-  joinDate: "March 2023",
-  avatar: "/avatars/john.png",
-  interests: ["Technology", "Education", "Environment", "Cultural Exchange", "Politics"],
-  languages: [
-    { code: "en", name: "English", proficiency: "Native" },
-    { code: "es", name: "Spanish", proficiency: "Intermediate" },
-    { code: "fr", name: "French", proficiency: "Beginner" },
-  ],
-  statistics: {
-    debatesParticipated: 24,
-    debatesHosted: 5,
-    totalConnections: 18,
-    languagesInteractedWith: 8,
-    wordsTranslated: 12500,
-    totalHoursSpent: 36,
-  },
-  achievements: [
-    {
-      id: "1",
-      title: "Global Communicator",
-      description: "Participated in debates with people from 5+ countries",
-      date: "April 2024",
-      icon: Globe,
-    },
-    {
-      id: "2",
-      title: "Polyglot Novice",
-      description: "Used 3 different languages in debates",
-      date: "March 2024",
-      icon: LanguagesIcon,
-    },
-    {
-      id: "3",
-      title: "Connection Builder",
-      description: "Made 10+ connections",
-      date: "February 2024",
-      icon: Users,
-    },
-  ],
-  notifications: {
-    emailNotifications: true,
-    newDebateInvitations: true,
-    connectionRequests: true,
-    debateReminders: true,
-    weeklyNewsletter: false,
-  },
-  privacy: {
-    showEmail: false,
-    showLanguageProficiency: true,
-    showLocation: true,
-    allowConnectionRequests: true,
-  },
-};
-
-// Available language proficiency levels
-const proficiencyLevels = [
-  "Beginner",
-  "Elementary",
-  "Intermediate",
-  "Advanced",
-  "Fluent",
-  "Native",
-];
-
-// List of languages
-const availableLanguages = [
-  { code: "en", name: "English" },
-  { code: "es", name: "Spanish" },
-  { code: "fr", name: "French" },
-  { code: "de", name: "German" },
-  { code: "it", name: "Italian" },
-  { code: "pt", name: "Portuguese" },
-  { code: "ru", name: "Russian" },
-  { code: "zh", name: "Chinese" },
-  { code: "ja", name: "Japanese" },
-  { code: "ar", name: "Arabic" },
-  { code: "hi", name: "Hindi" },
-  { code: "bn", name: "Bengali" },
-  { code: "ko", name: "Korean" },
-  { code: "tr", name: "Turkish" },
-  { code: "nl", name: "Dutch" },
-];
-
-// List of interests/topics
+// Available interests for selection
 const availableInterests = [
   "Technology",
-  "Education",
-  "Environment",
-  "Cultural Exchange",
   "Politics",
+  "Environment",
+  "Education",
+  "Culture",
   "Science",
   "Arts",
   "Health",
   "Business",
   "Sports",
-  "Food",
-  "Travel",
-  "Music",
-  "Literature",
-  "History",
-  "Philosophy",
-  "Religion",
-  "Social Issues",
 ];
 
+// Language proficiency levels
+const proficiencyLevels = [
+  { value: "beginner", label: "Beginner" },
+  { value: "intermediate", label: "Intermediate" },
+  { value: "advanced", label: "Advanced" },
+  { value: "native", label: "Native" },
+];
+
+// Available languages
+const availableLanguages = [
+  { code: "en", name: "English" },
+  { code: "es", name: "Spanish" },
+  { code: "fr", name: "French" },
+  { code: "de", name: "German" },
+  { code: "zh", name: "Chinese" },
+  { code: "ja", name: "Japanese" },
+  { code: "ko", name: "Korean" },
+  { code: "ar", name: "Arabic" },
+  { code: "hi", name: "Hindi" },
+  { code: "pt", name: "Portuguese" },
+];
+
+interface Language {
+  code: string;
+  name: string;
+  proficiency: string;
+}
+
+interface FormData {
+  name: string;
+  username: string;
+  email: string;
+  bio: string;
+  location: string;
+  preferredLanguage: string;
+  interests: string[];
+  avatar: string;
+  password?: string;
+  confirmPassword?: string;
+}
+
 export default function ProfilePage() {
-  // Form state
-  const [formData, setFormData] = useState({
-    name: user.name,
-    username: user.username,
-    email: user.email,
-    bio: user.bio,
-    preferredLanguage: user.preferredLanguage,
-    location: user.location,
+  const { user } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<FormData>({
+    name: user?.name || "",
+    username: user?.username || "",
+    email: user?.email || "",
+    bio: user?.bio || "",
+    location: user?.location || "",
+    preferredLanguage: user?.preferredLanguage || "en",
+    interests: user?.interests || [],
+    avatar: user?.avatar || "",
+    password: "",
+    confirmPassword: "",
   });
 
-  const [selectedInterests, setSelectedInterests] = useState<string[]>(user.interests);
-  const [userLanguages, setUserLanguages] = useState(user.languages);
-  const [newLanguage, setNewLanguage] = useState("");
-  const [newProficiency, setNewProficiency] = useState("Beginner");
-  const [notifications, setNotifications] = useState(user.notifications);
-  const [privacySettings, setPrivacySettings] = useState(user.privacy);
-
-  // Handle form input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  // Handle interest toggle
   const handleInterestToggle = (interest: string) => {
-    if (selectedInterests.includes(interest)) {
-      setSelectedInterests(selectedInterests.filter((i) => i !== interest));
-    } else {
-      setSelectedInterests([...selectedInterests, interest]);
-    }
-  };
-
-  // Handle language addition
-  const handleAddLanguage = () => {
-    if (!newLanguage) return;
-
-    const existingLanguage = userLanguages.find(lang => lang.code === newLanguage);
-    if (existingLanguage) {
-      toast.error("You've already added this language");
-      return;
-    }
-
-    const selectedLanguage = availableLanguages.find(lang => lang.code === newLanguage);
-    if (selectedLanguage) {
-      setUserLanguages([
-        ...userLanguages,
-        {
-          code: selectedLanguage.code,
-          name: selectedLanguage.name,
-          proficiency: newProficiency,
-        },
-      ]);
-      setNewLanguage("");
-      toast.success(`${selectedLanguage.name} added to your languages`);
-    }
-  };
-
-  // Handle language removal
-  const handleRemoveLanguage = (code: string) => {
-    setUserLanguages(userLanguages.filter((lang) => lang.code !== code));
-  };
-
-  // Handle notification toggle
-  const handleNotificationToggle = (key: keyof typeof notifications) => {
-    setNotifications((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      [key]: !prev[key],
+      interests: prev.interests.includes(interest)
+        ? prev.interests.filter(i => i !== interest)
+        : [...prev.interests, interest]
     }));
   };
 
-  // Handle privacy toggle
-  const handlePrivacyToggle = (key: keyof typeof privacySettings) => {
-    setPrivacySettings((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // In a real app, this would be an API call to update the user profile
-    toast.success("Profile updated successfully");
+    
+    // Validate password if provided
+    if (formData.password) {
+      if (formData.password !== formData.confirmPassword) {
+        toast.error("Passwords do not match");
+        return;
+      }
+      
+      if (formData.password.length < 8) {
+        toast.error("Password must be at least 8 characters long");
+        return;
+      }
+    }
+    
+    try {
+      // Create data object without confirmPassword
+      const updateData = { ...formData };
+      delete updateData.confirmPassword;
+      
+      // Remove password if it's empty
+      if (!updateData.password) {
+        delete updateData.password;
+      }
+      
+      console.log("Sending profile update with data:", updateData);
+      const response = await api.updateProfile(updateData);
+      
+      if (response.success) {
+        toast.success("Profile updated successfully");
+        if (formData.password) {
+          toast.info("Password updated. Please log in again with your new password.");
+        }
+        setIsEditing(false);
+        
+        // Clear password fields
+        setFormData(prev => ({
+          ...prev,
+          password: "",
+          confirmPassword: "",
+        }));
+      }
+    } catch (error) {
+      toast.error("Failed to update profile");
+      console.error("Profile update error:", error);
+    }
   };
+
+  // Early return if no user
+  if (!user) {
+    return (
+      <DashboardLayout user={{
+        _id: "",
+        username: "",
+        name: "",
+        email: "",
+        preferredLanguage: "en",
+        bio: "",
+        location: "",
+        avatar: "",
+        interests: [],
+        socialLinks: {},
+        rating: 0,
+        debateStats: { won: 0, lost: 0, drawn: 0 },
+        createdAt: "",
+        lastActive: ""
+      }}>
+        <div className="flex items-center justify-center h-full">
+          <p>Please log in to view your profile.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout user={user}>
@@ -224,537 +204,204 @@ export default function ProfilePage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Your Profile</h1>
           <p className="text-muted-foreground">
-            Manage your personal information and preferences
+            Manage your profile information and settings
           </p>
         </div>
 
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="languages">Languages</TabsTrigger>
-            <TabsTrigger value="interests">Interests</TabsTrigger>
-            <TabsTrigger value="achievements">Achievements</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Personal Information</CardTitle>
-                <CardDescription>
-                  Update your personal information and how others see you
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex flex-col items-center space-y-4 sm:flex-row sm:items-start sm:space-x-4 sm:space-y-0">
-                  <div className="relative">
-                    <Avatar className="h-24 w-24">
-                      <AvatarImage src={user.avatar} alt={user.name} />
-                      <AvatarFallback className="text-2xl">
-                        {user.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
-                    >
-                      <Camera className="h-4 w-4" />
-                      <span className="sr-only">Change avatar</span>
-                    </Button>
+        <div className="grid gap-6 md:grid-cols-[280px_1fr]">
+          {/* Profile Summary Card */}
+          <Card className="h-fit">
+            <CardHeader className="text-center">
+              <Avatar className="mx-auto h-24 w-24">
+                <AvatarImage src={user.avatar} alt={user.name} />
+                <AvatarFallback className="text-4xl">{user.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <CardTitle>{user.name}</CardTitle>
+              <CardDescription>@{user.username}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span>{user.email}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <span>{user.location || "Location not set"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <span>{availableLanguages.find(l => l.code === user.preferredLanguage)?.name || "English"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span>Joined {new Date(user.createdAt).toLocaleDateString()}</span>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Debate Statistics</h4>
+                <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                  <div>
+                    <div className="font-medium">{user.debateStats.won}</div>
+                    <div className="text-xs text-muted-foreground">Won</div>
                   </div>
-                  <div className="space-y-1 text-center sm:text-left">
-                    <h3 className="text-xl font-semibold">{user.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Member since {user.joinDate}
-                    </p>
-                    <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
-                      {user.languages.map((language) => (
-                        <Badge key={language.code} variant="secondary">
-                          {language.name}
-                        </Badge>
-                      ))}
-                    </div>
+                  <div>
+                    <div className="font-medium">{user.debateStats.lost}</div>
+                    <div className="text-xs text-muted-foreground">Lost</div>
+                  </div>
+                  <div>
+                    <div className="font-medium">{user.debateStats.drawn}</div>
+                    <div className="text-xs text-muted-foreground">Drawn</div>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                    />
+          {/* Main Content */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Profile Information</CardTitle>
+                  <CardDescription>Update your profile details</CardDescription>
+                </div>
+                <Button
+                  variant={isEditing ? "outline" : "default"}
+                  onClick={() => setIsEditing(!isEditing)}
+                >
+                  {isEditing ? "Cancel" : "Edit Profile"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="username">Username</Label>
+                      <Input
+                        id="username"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                      />
+                    </div>
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      id="username"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="location">Location</Label>
-                    <Input
-                      id="location"
-                      name="location"
-                      value={formData.location}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="bio">Bio</Label>
                     <Textarea
                       id="bio"
                       name="bio"
-                      rows={4}
                       value={formData.bio}
                       onChange={handleChange}
-                      placeholder="Tell others about yourself..."
+                      disabled={!isEditing}
+                      rows={4}
                     />
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="preferredLanguage">Preferred Language</Label>
-                    <Select
-                      value={formData.preferredLanguage}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, preferredLanguage: value }))}
-                    >
-                      <SelectTrigger id="preferredLanguage">
-                        <SelectValue placeholder="Select your preferred language" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableLanguages.map((language) => (
-                          <SelectItem key={language.code} value={language.code}>
-                            {language.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </form>
-              </CardContent>
-              <CardFooter className="flex-col space-y-2 sm:flex-row sm:justify-between sm:space-y-0">
-                <div className="text-sm text-muted-foreground">
-                  <AlertCircle className="mr-1 inline-block h-3 w-3" />
-                  Your profile is visible to other Langlobe users
-                </div>
-                <Button onClick={handleSubmit}>Save Changes</Button>
-              </CardFooter>
-            </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>User Statistics</CardTitle>
-                <CardDescription>
-                  Your activity on Langlobe so far
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-                  <div className="flex flex-col rounded-lg border p-4">
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Debates Participated
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Location</Label>
+                      <Input
+                        id="location"
+                        name="location"
+                        value={formData.location}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                      />
                     </div>
-                    <div className="mt-2 flex items-center">
-                      <MessageSquare className="mr-2 h-5 w-5 text-primary" />
-                      <span className="text-2xl font-bold">
-                        {user.statistics.debatesParticipated}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col rounded-lg border p-4">
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Debates Hosted
-                    </div>
-                    <div className="mt-2 flex items-center">
-                      <UserCircle className="mr-2 h-5 w-5 text-primary" />
-                      <span className="text-2xl font-bold">
-                        {user.statistics.debatesHosted}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col rounded-lg border p-4">
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Connections
-                    </div>
-                    <div className="mt-2 flex items-center">
-                      <Users className="mr-2 h-5 w-5 text-primary" />
-                      <span className="text-2xl font-bold">
-                        {user.statistics.totalConnections}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col rounded-lg border p-4">
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Languages Interacted With
-                    </div>
-                    <div className="mt-2 flex items-center">
-                      <Globe className="mr-2 h-5 w-5 text-primary" />
-                      <span className="text-2xl font-bold">
-                        {user.statistics.languagesInteractedWith}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col rounded-lg border p-4">
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Words Translated
-                    </div>
-                    <div className="mt-2 flex items-center">
-                      <LanguagesIcon className="mr-2 h-5 w-5 text-primary" />
-                      <span className="text-2xl font-bold">
-                        {user.statistics.wordsTranslated.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col rounded-lg border p-4">
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Total Hours Spent
-                    </div>
-                    <div className="mt-2 flex items-center">
-                      <ClockIcon className="mr-2 h-5 w-5 text-primary" />
-                      <span className="text-2xl font-bold">
-                        {user.statistics.totalHoursSpent}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Languages Tab */}
-          <TabsContent value="languages" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Language Proficiency</CardTitle>
-                <CardDescription>
-                  Manage the languages you speak and your proficiency level
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  {userLanguages.map((language) => (
-                    <div
-                      key={language.code}
-                      className="flex items-center justify-between rounded-lg border p-4"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                          <Globe className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{language.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {language.proficiency}
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveLanguage(language.code)}
-                        disabled={language.code === user.preferredLanguage}
+                    <div className="space-y-2">
+                      <Label htmlFor="preferredLanguage">Preferred Language</Label>
+                      <Select
+                        value={formData.preferredLanguage}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, preferredLanguage: value }))}
+                        disabled={!isEditing}
                       >
-                        {language.code === user.preferredLanguage ? (
-                          <span className="text-xs text-muted-foreground">Primary Language</span>
-                        ) : (
-                          "Remove"
-                        )}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                <Separator />
-
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Add New Language</h3>
-                  <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
-                    <div>
-                      <Label htmlFor="new-language">Language</Label>
-                      <Select value={newLanguage} onValueChange={setNewLanguage}>
-                        <SelectTrigger id="new-language">
-                          <SelectValue placeholder="Select a language" />
+                        <SelectTrigger>
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableLanguages
-                            .filter(
-                              (lang) =>
-                                !userLanguages.some((userLang) => userLang.code === lang.code)
-                            )
-                            .map((language) => (
-                              <SelectItem key={language.code} value={language.code}>
-                                {language.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="proficiency">Proficiency</Label>
-                      <Select value={newProficiency} onValueChange={setNewProficiency}>
-                        <SelectTrigger id="proficiency">
-                          <SelectValue placeholder="Select proficiency" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {proficiencyLevels.map((level) => (
-                            <SelectItem key={level} value={level}>
-                              {level}
+                          {availableLanguages.map((language) => (
+                            <SelectItem key={language.code} value={language.code}>
+                              {language.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex items-end">
-                      <Button onClick={handleAddLanguage} disabled={!newLanguage}>
-                        Add Language
-                      </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Interests</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {availableInterests.map((interest) => (
+                        <Badge
+                          key={interest}
+                          variant={formData.interests.includes(interest) ? "default" : "outline"}
+                          className={isEditing ? "cursor-pointer" : undefined}
+                          onClick={() => isEditing && handleInterestToggle(interest)}
+                        >
+                          {interest}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          {/* Interests Tab */}
-          <TabsContent value="interests" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Topics of Interest</CardTitle>
-                <CardDescription>
-                  Select topics you're interested in discussing
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {availableInterests.map((interest) => (
-                    <Badge
-                      key={interest}
-                      variant={selectedInterests.includes(interest) ? "default" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => handleInterestToggle(interest)}
-                    >
-                      {interest}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleSubmit}>Save Interests</Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          {/* Achievements Tab */}
-          <TabsContent value="achievements" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Achievements</CardTitle>
-                <CardDescription>
-                  Milestones you've reached on Langlobe
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-                  {user.achievements.map((achievement) => (
-                    <div
-                      key={achievement.id}
-                      className="flex flex-col items-center rounded-lg border p-4 text-center"
-                    >
-                      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                        <achievement.icon className="h-6 w-6 text-primary" />
+                  {/* Password fields - only shown while editing */}
+                  {isEditing && (
+                    <div className="space-y-4 pt-4 mt-4 border-t">
+                      <div>
+                        <CardTitle className="text-base mb-2">Change Password</CardTitle>
+                        <CardDescription>Leave blank to keep your current password</CardDescription>
                       </div>
-                      <h3 className="mb-1 font-semibold">{achievement.title}</h3>
-                      <p className="mb-2 text-sm text-muted-foreground">
-                        {achievement.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Achieved on {achievement.date}
-                      </p>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="password">New Password</Label>
+                          <Input
+                            id="password"
+                            name="password"
+                            type="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            placeholder="New password"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="confirmPassword">Confirm Password</Label>
+                          <Input
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            type="password"
+                            value={formData.confirmPassword}
+                            onChange={handleChange}
+                            placeholder="Confirm new password"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  ))}
-
-                  {/* Locked/unearned achievements */}
-                  <div
-                    className="flex flex-col items-center rounded-lg border border-dashed p-4 text-center opacity-60"
-                  >
-                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                      <Award className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <h3 className="mb-1 font-semibold">Debate Master</h3>
-                    <p className="mb-2 text-sm text-muted-foreground">
-                      Host 10 successful debates
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Progress: 5/10 debates hosted
-                    </p>
-                  </div>
-                </div>
+                  )}
+                  
+                  {isEditing && (
+                    <Button type="submit" className="w-full">
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Changes
+                    </Button>
+                  )}
+                </form>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          {/* Settings Tab */}
-          <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>
-                  Manage how and when you receive notifications
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Email Notifications</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Receive notifications via email
-                    </div>
-                  </div>
-                  <Switch
-                    checked={notifications.emailNotifications}
-                    onCheckedChange={() => handleNotificationToggle("emailNotifications")}
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Debate Invitations</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Receive notifications for new debate invitations
-                    </div>
-                  </div>
-                  <Switch
-                    checked={notifications.newDebateInvitations}
-                    onCheckedChange={() => handleNotificationToggle("newDebateInvitations")}
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Connection Requests</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Receive notifications for connection requests
-                    </div>
-                  </div>
-                  <Switch
-                    checked={notifications.connectionRequests}
-                    onCheckedChange={() => handleNotificationToggle("connectionRequests")}
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Debate Reminders</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Receive reminders for upcoming debates
-                    </div>
-                  </div>
-                  <Switch
-                    checked={notifications.debateReminders}
-                    onCheckedChange={() => handleNotificationToggle("debateReminders")}
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Weekly Newsletter</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Receive a weekly newsletter with new features and debates
-                    </div>
-                  </div>
-                  <Switch
-                    checked={notifications.weeklyNewsletter}
-                    onCheckedChange={() => handleNotificationToggle("weeklyNewsletter")}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleSubmit}>Save Notification Settings</Button>
-              </CardFooter>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Privacy Settings</CardTitle>
-                <CardDescription>
-                  Control who can see your information
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Show Email</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Allow other users to see your email address
-                    </div>
-                  </div>
-                  <Switch
-                    checked={privacySettings.showEmail}
-                    onCheckedChange={() => handlePrivacyToggle("showEmail")}
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Show Language Proficiency</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Allow other users to see your language proficiency levels
-                    </div>
-                  </div>
-                  <Switch
-                    checked={privacySettings.showLanguageProficiency}
-                    onCheckedChange={() => handlePrivacyToggle("showLanguageProficiency")}
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Show Location</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Allow other users to see your location
-                    </div>
-                  </div>
-                  <Switch
-                    checked={privacySettings.showLocation}
-                    onCheckedChange={() => handlePrivacyToggle("showLocation")}
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Allow Connection Requests</Label>
-                    <div className="text-sm text-muted-foreground">
-                      Allow other users to send you connection requests
-                    </div>
-                  </div>
-                  <Switch
-                    checked={privacySettings.allowConnectionRequests}
-                    onCheckedChange={() => handlePrivacyToggle("allowConnectionRequests")}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleSubmit}>Save Privacy Settings</Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

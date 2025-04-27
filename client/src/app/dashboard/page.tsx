@@ -21,14 +21,10 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/lib/auth-context";
 
-// Mock user data - in a real app, this would come from your authentication system
-const user = {
-  name: "John Doe",
-  email: "john@example.com",
-  language: "en",
-  languageName: "English",
-  joinDate: "March 2024",
+// Mock data for features not yet implemented
+const mockData = {
   totalDebates: 12,
   wordsTranslated: 3240,
   connections: 18,
@@ -107,7 +103,36 @@ const user = {
 };
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+
+  if (!user) {
+    return (
+      <DashboardLayout user={{ 
+        _id: "",
+        username: "",
+        name: "",
+        email: "",
+        preferredLanguage: "en",
+        bio: "",
+        location: "",
+        avatar: "",
+        interests: [],
+        socialLinks: {},
+        rating: 0,
+        debateStats: { won: 0, lost: 0, drawn: 0 },
+        createdAt: "",
+        lastActive: ""
+      }}>
+        <div className="flex h-[80vh] items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">Please log in</h1>
+            <p className="text-muted-foreground">You need to be logged in to view this page.</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout user={user}>
@@ -126,7 +151,7 @@ export default function DashboardPage() {
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{user.totalDebates}</div>
+              <div className="text-2xl font-bold">{mockData.totalDebates}</div>
               <p className="text-xs text-muted-foreground">+2 from last month</p>
             </CardContent>
           </Card>
@@ -136,7 +161,7 @@ export default function DashboardPage() {
               <Globe className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{user.wordsTranslated}</div>
+              <div className="text-2xl font-bold">{mockData.wordsTranslated}</div>
               <p className="text-xs text-muted-foreground">+520 from last week</p>
             </CardContent>
           </Card>
@@ -146,7 +171,7 @@ export default function DashboardPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{user.connections}</div>
+              <div className="text-2xl font-bold">{mockData.connections}</div>
               <p className="text-xs text-muted-foreground">+4 from last month</p>
             </CardContent>
           </Card>
@@ -157,7 +182,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">Intermediate</div>
-              <p className="text-xs text-muted-foreground">Based on {user.languageName}</p>
+              <p className="text-xs text-muted-foreground">Based on {user.preferredLanguage}</p>
             </CardContent>
           </Card>
         </div>
@@ -175,7 +200,7 @@ export default function DashboardPage() {
               </div>
 
               <TabsContent value="active" className="space-y-4">
-                {user.recentDebates.filter(debate => debate.active).map(debate => (
+                {mockData.recentDebates.filter(debate => debate.active).map(debate => (
                   <Card key={debate.id}>
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
@@ -196,7 +221,7 @@ export default function DashboardPage() {
                   </Card>
                 ))}
 
-                {user.recentDebates.filter(debate => debate.active).length === 0 && (
+                {mockData.recentDebates.filter(debate => debate.active).length === 0 && (
                   <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
                     <MessageSquare className="h-10 w-10 text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No active debates</h3>
@@ -211,7 +236,7 @@ export default function DashboardPage() {
               </TabsContent>
 
               <TabsContent value="scheduled" className="space-y-4">
-                {user.upcomingDebates.map(debate => (
+                {mockData.upcomingDebates.map(debate => (
                   <Card key={debate.id}>
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
@@ -235,7 +260,7 @@ export default function DashboardPage() {
                   </Card>
                 ))}
 
-                {user.upcomingDebates.length === 0 && (
+                {mockData.upcomingDebates.length === 0 && (
                   <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
                     <Calendar className="h-10 w-10 text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No scheduled debates</h3>
@@ -250,7 +275,7 @@ export default function DashboardPage() {
               </TabsContent>
 
               <TabsContent value="past" className="space-y-4">
-                {user.recentDebates.filter(debate => !debate.active).map(debate => (
+                {mockData.recentDebates.filter(debate => !debate.active).map(debate => (
                   <Card key={debate.id}>
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
@@ -274,7 +299,7 @@ export default function DashboardPage() {
                   </Card>
                 ))}
 
-                {user.recentDebates.filter(debate => !debate.active).length === 0 && (
+                {mockData.recentDebates.filter(debate => !debate.active).length === 0 && (
                   <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
                     <BarChart className="h-10 w-10 text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No past debates</h3>
@@ -331,7 +356,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {user.suggestedTopics.map((topic, index) => (
+                  {mockData.suggestedTopics.map((topic, index) => (
                     <div key={index} className="flex items-center justify-between rounded-lg border p-3 text-sm">
                       <div className="flex items-center gap-2">
                         <Flag className="h-4 w-4 text-muted-foreground" />
@@ -360,7 +385,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {user.recentConnections.map((connection) => (
+                  {mockData.recentConnections.map((connection) => (
                     <div key={connection.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-primary/10 overflow-hidden">
