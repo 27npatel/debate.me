@@ -52,6 +52,22 @@ export interface AuthResponse {
   user: User;
 }
 
+interface FriendsResponse {
+  success: boolean;
+  friends: User[];
+}
+
+interface FriendRequestsResponse {
+  success: boolean;
+  incoming: User[];
+  outgoing: User[];
+}
+
+interface UsersResponse {
+  success: boolean;
+  users: User[];
+}
+
 export class ApiClient {
   private token: string | null = null;
 
@@ -81,9 +97,9 @@ export class ApiClient {
     if (!response.ok) {
       try {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'An error occurred');
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       } catch (e) {
-        throw new Error('An error occurred while processing the response');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
     }
     
@@ -91,6 +107,28 @@ export class ApiClient {
       return await response.json();
     } catch (e) {
       throw new Error('Failed to parse response data');
+    }
+  }
+
+  private async fetchWithRetry<T>(url: string, options: RequestInit, retries = 3): Promise<T> {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        credentials: 'include',
+        headers: {
+          ...options.headers,
+          'Accept': 'application/json',
+        },
+      });
+      return await this.handleResponse<T>(response);
+    } catch (error) {
+      if (retries > 0 && error instanceof Error && error.message.includes('Failed to fetch')) {
+        console.log(`Retrying request to ${url}... (${retries} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return this.fetchWithRetry(url, options, retries - 1);
+      }
+      console.error(`Network error for ${url}:`, error);
+      throw new Error(`Failed to connect to server. Please make sure the server is running at ${API_BASE_URL}`);
     }
   }
 
@@ -128,19 +166,20 @@ export class ApiClient {
 
   async login(data: LoginData): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify(data),
-      });
+      const response = await this.fetchWithRetry<AuthResponse>(
+        `${API_BASE_URL}/auth/login`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(data),
+        }
+      );
 
-      const result = await this.handleResponse<AuthResponse>(response);
-
-      if (result.token) {
-        this.setToken(result.token);
+      if (response.token) {
+        this.setToken(response.token);
       }
 
-      return result;
+      return response;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -226,6 +265,113 @@ export class ApiClient {
       body: JSON.stringify(data),
     });
     return this.handleResponse(response);
+  }
+
+  async getFriends(): Promise<FriendsResponse> {
+    try {
+      const response = await this.fetchWithRetry<FriendsResponse>(
+        `${API_BASE_URL}/friends`,
+        { headers: this.getHeaders() }
+      );
+      return response;
+    } catch (error) {
+      console.error('Get friends error:', error);
+      throw error;
+    }
+  }
+
+  async getFriendRequests(): Promise<FriendRequestsResponse> {
+    try {
+      const response = await this.fetchWithRetry<FriendRequestsResponse>(
+        `${API_BASE_URL}/friends/requests`,
+        { headers: this.getHeaders() }
+      );
+      return response;
+    } catch (error) {
+      console.error('Get friend requests error:', error);
+      throw error;
+    }
+  }
+
+  async getAllUsers(): Promise<UsersResponse> {
+    try {
+      const response = await this.fetchWithRetry<UsersResponse>(
+        `${API_BASE_URL}/friends/users`,
+        { headers: this.getHeaders() }
+      );
+      return response;
+    } catch (error) {
+      console.error('Get all users error:', error);
+      throw error;
+    }
+  }
+
+  async sendFriendRequest(userId: string) {
+    try {
+      const response = await this.fetchWithRetry<{ success: boolean; message?: string }>(
+        `${API_BASE_URL}/friends/request`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({ toUserId: userId }),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Send friend request error:', error);
+      throw error;
+    }
+  }
+
+  async acceptFriendRequest(userId: string) {
+    try {
+      const response = await this.fetchWithRetry<{ success: boolean; message?: string }>(
+        `${API_BASE_URL}/friends/accept`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({ fromUserId: userId }),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Accept friend request error:', error);
+      throw error;
+    }
+  }
+
+  async declineFriendRequest(userId: string) {
+    try {
+      const response = await this.fetchWithRetry<{ success: boolean; message?: string }>(
+        `${API_BASE_URL}/friends/decline`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({ fromUserId: userId }),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Decline friend request error:', error);
+      throw error;
+    }
+  }
+
+  async removeFriend(userId: string) {
+    try {
+      const response = await this.fetchWithRetry<{ success: boolean; message?: string }>(
+        `${API_BASE_URL}/friends/remove`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({ friendId: userId }),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Remove friend error:', error);
+      throw error;
+    }
   }
 }
 

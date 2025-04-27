@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "./mode-toggle";
 import { useAuth } from "@/lib/auth-context";
+import { User } from "@/lib/api";
 
 interface NavItemProps {
   href: string;
@@ -60,34 +61,11 @@ function NavItem({ href, icon, title, isActive, onClick }: NavItemProps) {
 }
 
 interface DashboardLayoutProps {
+  user: User | null;
   children: React.ReactNode;
-  user: {
-    _id: string;
-    username: string;
-    name: string;
-    email: string;
-    preferredLanguage: string;
-    bio: string;
-    location: string;
-    avatar: string;
-    interests: string[];
-    socialLinks: {
-      twitter?: string;
-      linkedin?: string;
-      website?: string;
-    };
-    rating: number;
-    debateStats: {
-      won: number;
-      lost: number;
-      drawn: number;
-    };
-    createdAt: string;
-    lastActive: string;
-  };
 }
 
-export function DashboardLayout({ children, user }: DashboardLayoutProps) {
+export function DashboardLayout({ user, children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { logout } = useAuth();
@@ -174,15 +152,15 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
               <div className="border-t p-4">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarImage src={user?.avatar || ""} alt={user?.name || ""} />
                     <AvatarFallback className="bg-primary/10 text-primary-foreground">
-                      {user.name?.[0]?.toUpperCase() || "U"}
+                      {user?.name?.[0]?.toUpperCase() || "U"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-1 flex-col">
-                    <span className="text-sm font-medium">{user.name}</span>
+                    <span className="text-sm font-medium">{user?.name || ""}</span>
                     <span className="text-xs text-muted-foreground">
-                      {user.email}
+                      {user?.email || ""}
                     </span>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => logout()}>
@@ -204,9 +182,9 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatar} alt={user.name} />
+                  <AvatarImage src={user?.avatar || ""} alt={user?.name || ""} />
                   <AvatarFallback className="bg-primary/10 text-primary-foreground">
-                    {user.name?.[0]?.toUpperCase() || "U"}
+                    {user?.name?.[0]?.toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -214,9 +192,9 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
             <DropdownMenuContent align="end">
               <div className="flex items-center gap-2 p-2">
                 <div className="flex flex-col space-y-0.5">
-                  <span className="text-sm font-medium">{user.name}</span>
+                  <span className="text-sm font-medium">{user?.name || ""}</span>
                   <span className="text-xs text-muted-foreground">
-                    {user.email}
+                    {user?.email || ""}
                   </span>
                 </div>
               </div>
@@ -259,15 +237,15 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
           <div className="absolute bottom-0 left-0 right-0 border-t p-4">
             <div className="flex items-center gap-2">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={user.avatar} alt={user.name} />
+                <AvatarImage src={user?.avatar || ""} alt={user?.name || ""} />
                 <AvatarFallback className="bg-primary/10 text-primary-foreground">
-                  {user.name?.[0]?.toUpperCase() || "U"}
+                  {user?.name?.[0]?.toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-1 flex-col truncate">
-                <span className="truncate text-sm font-medium">{user.name}</span>
+                <span className="truncate text-sm font-medium">{user?.name || ""}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {user.email}
+                  {user?.email || ""}
                 </span>
               </div>
               <DropdownMenu>
@@ -304,9 +282,9 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatar} alt={user.name} />
+                      <AvatarImage src={user?.avatar || ""} alt={user?.name || ""} />
                       <AvatarFallback className="bg-primary/10 text-primary-foreground">
-                        {user.name?.[0]?.toUpperCase() || "U"}
+                        {user?.name?.[0]?.toUpperCase() || "U"}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -314,9 +292,9 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
                 <DropdownMenuContent align="end">
                   <div className="flex items-center gap-2 p-2">
                     <div className="flex flex-col space-y-0.5">
-                      <span className="text-sm font-medium">{user.name}</span>
+                      <span className="text-sm font-medium">{user?.name || ""}</span>
                       <span className="text-xs text-muted-foreground">
-                        {user.email}
+                        {user?.email || ""}
                       </span>
                     </div>
                   </div>
