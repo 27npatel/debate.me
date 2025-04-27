@@ -1,7 +1,45 @@
+"use client";
+
 import Link from "next/link";
 import { Globe } from "lucide-react";
+import { useRouter } from "next/navigation";
+import * as React from "react";
 
 export function Footer() {
+  const router = useRouter();
+
+  // Handles smooth scroll or navigation for Features and About
+  const handleFooterNav = (href: string) => (e: React.MouseEvent) => {
+    if (href === "/features" || href === "/#features") {
+      e.preventDefault();
+      if (window.location.pathname === "/") {
+        const el = document.getElementById("features");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      } else {
+        router.push("/#features");
+      }
+    } else if (href === "/about" || href === "/#about") {
+      e.preventDefault();
+      if (window.location.pathname === "/") {
+        const el = document.getElementById("about");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      } else {
+        router.push("/#about");
+      }
+    } else if (["/pricing", "/contact", "/terms", "/privacy", "/cookies"].includes(href)) {
+      e.preventDefault();
+      if (window.location.pathname === "/") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        router.push("/");
+      }
+    }
+  };
+
   return (
     <footer className="border-t bg-background">
       <div className="container px-4 py-12 sm:px-8 lg:px-10">
@@ -18,39 +56,19 @@ export function Footer() {
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-4 sm:justify-end">
             <div className="flex flex-col gap-2">
               <h3 className="text-sm font-semibold">Product</h3>
-              <Link href="/features" className="text-sm text-muted-foreground hover:text-foreground">
-                Features
-              </Link>
-              <Link href="/pricing" className="text-sm text-muted-foreground hover:text-foreground">
-                Pricing
-              </Link>
-              <Link href="/how-it-works" className="text-sm text-muted-foreground hover:text-foreground">
-                How It Works
-              </Link>
+              <Link href="/features" className="text-sm text-muted-foreground hover:text-foreground" onClick={handleFooterNav("/features")}>Features</Link>
+              <Link href="/pricing" className="text-sm text-muted-foreground hover:text-foreground" onClick={handleFooterNav("/pricing")}>Pricing</Link>
             </div>
             <div className="flex flex-col gap-2">
               <h3 className="text-sm font-semibold">Company</h3>
-              <Link href="/about" className="text-sm text-muted-foreground hover:text-foreground">
-                About
-              </Link>
-              <Link href="/blog" className="text-sm text-muted-foreground hover:text-foreground">
-                Blog
-              </Link>
-              <Link href="/contact" className="text-sm text-muted-foreground hover:text-foreground">
-                Contact
-              </Link>
+              <Link href="/about" className="text-sm text-muted-foreground hover:text-foreground" onClick={handleFooterNav("/about")}>About</Link>
+              <Link href="/contact" className="text-sm text-muted-foreground hover:text-foreground" onClick={handleFooterNav("/contact")}>Contact</Link>
             </div>
             <div className="flex flex-col gap-2">
               <h3 className="text-sm font-semibold">Legal</h3>
-              <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground">
-                Terms
-              </Link>
-              <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground">
-                Privacy
-              </Link>
-              <Link href="/cookies" className="text-sm text-muted-foreground hover:text-foreground">
-                Cookies
-              </Link>
+              <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground" onClick={handleFooterNav("/terms")}>Terms</Link>
+              <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground" onClick={handleFooterNav("/privacy")}>Privacy</Link>
+              <Link href="/cookies" className="text-sm text-muted-foreground hover:text-foreground" onClick={handleFooterNav("/cookies")}>Cookies</Link>
             </div>
           </div>
         </div>

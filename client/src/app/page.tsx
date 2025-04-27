@@ -9,7 +9,7 @@ export default function Home() {
     <MainLayout>
       <HeroSection />
       <FeaturesSection />
-      <TestimonialSection />
+      <TestimonialSection id="about" />
       <CTASection />
     </MainLayout>
   );

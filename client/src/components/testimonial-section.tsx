@@ -32,9 +32,9 @@ const testimonials = [
   },
 ];
 
-export function TestimonialSection() {
+export function TestimonialSection({ id }: { id?: string }) {
   return (
-    <section className="bg-background py-20 md:py-24 lg:py-28">
+    <section id={id} className="bg-background py-20 md:py-24 lg:py-28">
       <div className="container px-4 md:px-6">
         <motion.div
           className="mx-auto mb-12 max-w-[58rem] text-center md:mb-16"

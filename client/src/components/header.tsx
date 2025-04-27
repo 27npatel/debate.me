@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
 
 interface HeaderProps {
   isLoggedIn?: boolean;
@@ -24,13 +25,44 @@ interface HeaderProps {
 
 export function Header({ isLoggedIn = false, userDisplayName, userAvatar }: HeaderProps) {
   const [open, setOpen] = React.useState(false);
+  const router = useRouter();
 
   const navigation = [
     { name: "Home", href: "/" },
     { name: "About", href: "/about" },
     { name: "Features", href: "/features" },
-    { name: "How It Works", href: "/how-it-works" },
   ];
+
+  const handleNavClick = (href: string) => (e: React.MouseEvent) => {
+    if (href === "/features" || href === "/#features") {
+      e.preventDefault();
+      if (window.location.pathname === "/") {
+        const el = document.getElementById("features");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      } else {
+        router.push("/#features");
+      }
+    } else if (href === "/about" || href === "/#about") {
+      e.preventDefault();
+      if (window.location.pathname === "/") {
+        const el = document.getElementById("about");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      } else {
+        router.push("/#about");
+      }
+    } else if (href === "/") {
+      e.preventDefault();
+      if (window.location.pathname === "/") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        router.push("/");
+      }
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur-sm">
@@ -43,7 +75,7 @@ export function Header({ isLoggedIn = false, userDisplayName, userAvatar }: Head
         <nav className="ml-auto hidden space-x-4 md:flex">
           {navigation.map((item) => (
             <Button key={item.name} variant="ghost" asChild>
-              <Link href={item.href}>{item.name}</Link>
+              <Link href={item.href} onClick={item.name === "Features" || item.name === "About" || item.name === "Home" ? handleNavClick(item.href) : undefined}>{item.name}</Link>
             </Button>
           ))}
         </nav>
@@ -127,7 +159,7 @@ export function Header({ isLoggedIn = false, userDisplayName, userAvatar }: Head
                     variant="ghost"
                     asChild
                     className="justify-start"
-                    onClick={() => setOpen(false)}
+                    onClick={item.name === "Features" || item.name === "About" || item.name === "Home" ? handleNavClick(item.href) : () => setOpen(false)}
                   >
                     <Link href={item.href}>{item.name}</Link>
                   </Button>

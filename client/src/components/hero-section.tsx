@@ -4,8 +4,22 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, MessageCircle, Globe, Mic, Languages } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export function HeroSection() {
+  const router = useRouter();
+  const handleLearnMore = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (window.location.pathname === "/") {
+      const el = document.getElementById("features");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+    } else {
+      router.push("/#features");
+    }
+  };
+
   return (
     <section className="relative overflow-hidden bg-background py-20 md:py-24 lg:py-32">
       <div className="hero-pattern absolute inset-0 opacity-10" />
@@ -34,7 +48,7 @@ export function HeroSection() {
                 </Link>
               </Button>
               <Button variant="outline" size="lg" asChild>
-                <Link href="/how-it-works">
+                <Link href="/#features" onClick={handleLearnMore}>
                   Learn More
                 </Link>
               </Button>

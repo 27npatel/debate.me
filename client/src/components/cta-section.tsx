@@ -29,7 +29,12 @@ export function CTASection() {
                 Get Started for Free <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            <Button variant="outline" size="lg" asChild className="border-white text-white hover:bg-white/10">
+            <Button
+              variant="outline"
+              size="lg"
+              asChild
+              className="border-white bg-white/20 text-blue-900 hover:bg-white/40 hover:text-blue-800 transition-colors"
+            >
               <Link href="/demo">
                 See Demo
               </Link>
