@@ -145,19 +145,20 @@ export class ApiClient {
 
   async signup(data: SignupData): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify(data),
-      });
+      const response = await this.fetchWithRetry<AuthResponse>(
+        `${API_BASE_URL}/auth/signup`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(data),
+        }
+      );
 
-      const result = await this.handleResponse<AuthResponse>(response);
-
-      if (result.token) {
-        this.setToken(result.token);
+      if (response.token) {
+        this.setToken(response.token);
       }
 
-      return result;
+      return response;
     } catch (error) {
       console.error('Signup error:', error);
       throw error;

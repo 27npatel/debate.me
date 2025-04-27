@@ -37,6 +37,13 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Add production server configuration
+  server: {
+    host: '0.0.0.0',
+    port: process.env.PORT || 3000,
+  },
+  // Enable standalone output for better production performance
+  output: 'standalone',
 };
 
 module.exports = nextConfig;
