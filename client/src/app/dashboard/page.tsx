@@ -247,9 +247,9 @@ export default function DashboardPage() {
   }
 
   // Filter debates based on user's participation and status
-  const userDebates = debates.filter(debate => 
-    debate.participants.some(p => p.user._id === user._id)
-  );
+  const userDebates = user ? debates.filter(debate => 
+    debate.participants.some(p => p.user && p.user._id === user._id)
+  ) : [];
 
   const activeDebates = userDebates.filter(debate => {
     // A debate is active only if:
@@ -289,13 +289,13 @@ export default function DashboardPage() {
 
   // Calculate total debates and connections
   const totalDebates = userDebates.length;
-  const uniqueConnectionsCount = new Set(
+  const uniqueConnectionsCount = user ? new Set(
     userDebates.flatMap(debate => 
       debate.participants
-        .filter(p => p.user._id !== user._id)
+        .filter(p => p.user && p.user._id !== user._id)
         .map(p => p.user._id)
     )
-  ).size;
+  ).size : 0;
 
   return (
     <DashboardLayout user={user}>

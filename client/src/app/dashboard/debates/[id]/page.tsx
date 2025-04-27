@@ -193,7 +193,7 @@ export default function DebatePage({ params }: { params: PageParams }) {
     if (
       user &&
       debate &&
-      !debate.participants.some(p => p.user._id === user._id && p.isActive)
+      !debate.participants.some(p => p.user && p.user._id === user._id && p.isActive)
     ) {
       handleJoinDebate();
     }
@@ -347,17 +347,16 @@ export default function DebatePage({ params }: { params: PageParams }) {
     }
 
     try {
-      // Find other participants with different languages
+      // Get other participants (excluding current user)
       const otherParticipants = debate.participants
-        .filter(p => p.isActive && p.user._id !== user._id)
-        .map(p => p.user);
+        .filter(p => p.isActive && p.user && p.user._id !== user._id);
 
       const translatedTexts: Record<string, string> = {};
       const currentUserLang = user.preferredLanguage || 'en';
 
       // Translate message for each participant with a different language
       for (const participant of otherParticipants) {
-        const targetLang = participant.preferredLanguage || 'en';
+        const targetLang = participant.user.preferredLanguage || 'en';
         if (targetLang !== currentUserLang) {
           try {
             const response = await api.translateText(message, currentUserLang, targetLang) as TranslationResponse;
@@ -685,7 +684,7 @@ export default function DebatePage({ params }: { params: PageParams }) {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -20 }}
                           transition={{ duration: 0.2 }}
-                          className="flex items-start gap-3"
+                          className={`flex ${user && msg.user._id === user._id ? 'justify-end' : 'justify-start'} mb-4`}
                         >
                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                             {msg.user.avatar ? (

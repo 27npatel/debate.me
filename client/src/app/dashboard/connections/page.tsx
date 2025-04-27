@@ -85,7 +85,7 @@ export default function ConnectionsPage() {
       if (usersRes.success && usersRes.users) {
         // Filter out current user and existing friends from suggestions
         const filteredSuggestions = usersRes.users.filter(
-          (u) => u._id !== user._id && !connections.some((f) => f._id === u._id)
+          (u) => user && u._id !== user._id && !connections.some((f) => f._id === u._id)
         );
         setSuggestions(filteredSuggestions);
       } else {
