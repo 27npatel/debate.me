@@ -57,10 +57,17 @@ export default function SignupPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsLoading(true);
+      console.log('Submitting signup form with values:', { 
+        ...values, 
+        password: '[REDACTED]' 
+      });
+      
       await signup(values);
       toast.success("Account created successfully!");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Signup failed");
+      console.error('Signup form submission error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Signup failed. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

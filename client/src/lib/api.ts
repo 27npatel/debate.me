@@ -151,23 +151,32 @@ export class ApiClient {
       if (contentType && contentType.includes('application/json')) {
         data = await response.json();
       } else {
-        // If not JSON, throw a more specific error
         throw new Error('Server returned non-JSON response');
       }
     } catch (error) {
-      // If we can't parse the response as JSON, it's likely a server error
       const apiError = new Error('Server error') as ApiError;
       apiError.status = response.status;
       throw apiError;
     }
     
-    if (!response.ok) {
-      const error = new Error(data.message || 'Request failed') as ApiError;
-      error.status = response.status;
-      throw error;
+    // Return the data directly for successful responses
+    if (response.ok) {
+      return data;
     }
     
-    return data;
+    // Handle error responses
+    let errorMessage = 'Request failed';
+    if (data.error) {
+      errorMessage = data.error;
+    } else if (data.message) {
+      errorMessage = data.message;
+    } else if (data.errors && Array.isArray(data.errors)) {
+      errorMessage = data.errors.map((err: any) => err.msg || err.message).join(', ');
+    }
+    
+    const error = new Error(errorMessage) as ApiError;
+    error.status = response.status;
+    throw error;
   }
 
   private async fetchWithRetry<T>(url: string, options: RequestInit, retries = 3): Promise<T> {
@@ -222,14 +231,24 @@ export class ApiClient {
 
   async signup(data: SignupData): Promise<AuthResponse> {
     try {
+      console.log('Sending signup request with data:', { 
+        ...data, 
+        password: '[REDACTED]' 
+      });
+      
       const response = await this.fetchWithRetry<AuthResponse>(
         `${this.API_BASE_URL}/auth/signup`,
         {
           method: 'POST',
-          headers: this.getHeaders(),
+          headers: {
+            ...this.getHeaders(),
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify(data),
         }
       );
+
+      console.log('Signup response:', response);
 
       if (!response.success) {
         throw new Error(response.message || 'Signup failed');

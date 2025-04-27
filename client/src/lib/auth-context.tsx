@@ -77,11 +77,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (data: { username: string; name: string; email: string; password: string; preferredLanguage: string }) => {
     try {
+      console.log('Attempting signup with data:', { 
+        ...data, 
+        password: '[REDACTED]' 
+      });
+      
       const response = await api.signup(data);
+      
+      console.log('Signup response received:', response);
+      
       if (response.token) {
         localStorage.setItem('token', response.token);
         api.setToken(response.token);
       }
+      
       if (response.user) {
         setUser(response.user);
         router.push('/dashboard');
@@ -90,7 +99,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Signup failed:', error);
-      throw error;
+      // Re-throw the error with a more user-friendly message if needed
+      if (error instanceof Error) {
+        throw new Error(error.message);
+      }
+      throw new Error('An unexpected error occurred during signup');
     }
   };
 
