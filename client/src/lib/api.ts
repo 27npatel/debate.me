@@ -159,8 +159,8 @@ export class ApiClient {
       throw apiError;
     }
     
-    // Return the data directly for successful responses
-    if (response.ok) {
+    // Return the data directly for successful responses (including 201)
+    if (response.status >= 200 && response.status < 300) {
       return data;
     }
     

@@ -86,17 +86,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('Signup response received:', response);
       
+      if (!response.success) {
+        throw new Error(response.message || 'Signup failed');
+      }
+      
+      if (!response.user || !response.user._id) {
+        throw new Error('Invalid user data received from server');
+      }
+      
       if (response.token) {
         localStorage.setItem('token', response.token);
         api.setToken(response.token);
       }
       
-      if (response.user) {
-        setUser(response.user);
-        router.push('/dashboard');
-      } else {
-        throw new Error('User data not received from server');
-      }
+      setUser(response.user);
+      router.push('/dashboard');
     } catch (error) {
       console.error('Signup failed:', error);
       // Re-throw the error with a more user-friendly message if needed
