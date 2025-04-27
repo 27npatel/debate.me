@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Langlobe | Break Language Barriers",
+  title: "Debatably | Break Language Barriers",
   description: "Live debate rooms where speech is transcribed, translated, and described in participants' native tongues in real-time",
   icons: {
     icon: "/favicon.ico",
