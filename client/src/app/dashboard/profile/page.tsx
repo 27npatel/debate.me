@@ -105,6 +105,7 @@ export default function ProfilePage() {
     password: "",
     confirmPassword: "",
   });
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -125,33 +126,29 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setErrorMessage(null);
     // Validate password if provided
     if (formData.password) {
       if (formData.password !== formData.confirmPassword) {
+        setErrorMessage("Passwords do not match");
         toast.error("Passwords do not match");
         return;
       }
-      
       if (formData.password.length < 8) {
+        setErrorMessage("Password must be at least 8 characters long");
         toast.error("Password must be at least 8 characters long");
         return;
       }
     }
-    
     try {
       // Create data object without confirmPassword
       const updateData = { ...formData };
       delete updateData.confirmPassword;
-      
       // Remove password if it's empty
       if (!updateData.password) {
         delete updateData.password;
       }
-      
-      console.log("Sending profile update with data:", updateData);
       const response = await api.updateProfile(updateData);
-      
       if (response.success) {
         toast.success("Profile updated successfully");
         if (formData.password) {
@@ -159,15 +156,22 @@ export default function ProfilePage() {
         }
         setIsEditing(false);
         setUser(response.user);
-        // Clear password fields
         setFormData(prev => ({
           ...prev,
           password: "",
           confirmPassword: "",
         }));
+        setErrorMessage(null);
       }
-    } catch (error) {
-      toast.error("Failed to update profile");
+    } catch (error: any) {
+      let message = "Failed to update profile";
+      if (error && error.response && error.response.errors) {
+        message = error.response.errors.map((e: any) => e.msg).join("; ");
+      } else if (error && error.message) {
+        message = error.message;
+      }
+      setErrorMessage(message);
+      toast.error(message);
       console.error("Profile update error:", error);
     }
   };
@@ -273,6 +277,9 @@ export default function ProfilePage() {
                 </Button>
               </CardHeader>
               <CardContent>
+                {errorMessage && (
+                  <div className="mb-2 text-sm text-destructive font-medium">{errorMessage}</div>
+                )}
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
