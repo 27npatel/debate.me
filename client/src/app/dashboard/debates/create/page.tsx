@@ -180,6 +180,22 @@ export default function CreateDebatePage() {
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    console.log('Input changed:', name, value);
+    if (name === "title") {
+      setTitle(value);
+    } else if (name === "description") {
+      setDescription(value);
+    } else if (name === "capacity") {
+      setCapacity(value);
+    } else if (name === "duration") {
+      setDuration(value);
+    } else if (name === "inviteEntry") {
+      setInviteEntry(value);
+    }
+  };
+
   return (
     <DashboardLayout user={user || mockUser}>
       <div className="space-y-6">
@@ -207,7 +223,7 @@ export default function CreateDebatePage() {
                       id="title"
                       placeholder="Enter a clear, descriptive title"
                       value={title}
-                      onChange={(e) => setTitle(e.target.value)}
+                      onChange={handleChange}
                       autoFocus
                     />
                   </div>
@@ -221,7 +237,7 @@ export default function CreateDebatePage() {
                       placeholder="Describe what your debate is about"
                       rows={4}
                       value={description}
-                      onChange={(e) => setDescription(e.target.value)}
+                      onChange={handleChange}
                     />
                   </div>
                   <div className="space-y-2">
@@ -383,7 +399,7 @@ export default function CreateDebatePage() {
                     <Input
                       ref={inviteInputRef}
                       value={inviteEntry}
-                      onChange={e => setInviteEntry(e.target.value)}
+                      onChange={handleChange}
                       onKeyDown={e => {
                         if (e.key === "Enter") {
                           e.preventDefault();
