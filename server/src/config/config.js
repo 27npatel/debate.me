@@ -12,15 +12,15 @@ dotenv.config({ path: path.resolve(__dirname, `../../${envFile}`) });
 const config = {
   development: {
     mongodb: {
-      uri: process.env.MONGODB_URI,
+      uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/debateme',
       options: {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
+        // Remove deprecated options
+        // useNewUrlParser and useUnifiedTopology are no longer needed in MongoDB Node.js Driver 4.0+
       }
     },
     server: {
-      port: process.env.PORT,
-      frontendUrl: process.env.FRONTEND_URL
+      port: process.env.PORT || 5001,
+      frontendUrl: process.env.CLIENT_URL || 'http://localhost:3000'
     },
     jwt: {
       secret: process.env.JWT_SECRET,
@@ -29,15 +29,15 @@ const config = {
   },
   production: {
     mongodb: {
-      uri: process.env.MONGODB_URI,
+      uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/debateme',
       options: {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
+        // Remove deprecated options
+        // useNewUrlParser and useUnifiedTopology are no longer needed in MongoDB Node.js Driver 4.0+
       }
     },
     server: {
-      port: process.env.PORT,
-      frontendUrl: process.env.FRONTEND_URL
+      port: process.env.PORT || 5001,
+      frontendUrl: process.env.CLIENT_URL || 'http://localhost:3000'
     },
     jwt: {
       secret: process.env.JWT_SECRET,

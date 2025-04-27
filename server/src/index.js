@@ -1,7 +1,9 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import morgan from 'morgan';
+import dotenv from 'dotenv';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import config from './config/config.js';
 
 // Routes
@@ -10,19 +12,24 @@ import debateRoutes from './routes/debate.routes.js';
 import userRoutes from './routes/user.routes.js';
 import friendRoutes from './routes/friend.routes.js';
 
-// Create Express app
+dotenv.config();
+
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
 
 // Middleware
 app.use(cors({
-  origin: config.server.frontendUrl,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true
 }));
-app.use(morgan('dev'));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.get('/', (req, res) => {
@@ -30,9 +37,33 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
-app.use('/api/debates', debateRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/debates', debateRoutes);
 app.use('/api/friends', friendRoutes);
+
+// WebSocket connection handling
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+
+  // Join debate room
+  socket.on('join-debate', (debateId) => {
+    socket.join(`debate:${debateId}`);
+    console.log(`Client ${socket.id} joined debate: ${debateId}`);
+  });
+
+  // Leave debate room
+  socket.on('leave-debate', (debateId) => {
+    socket.leave(`debate:${debateId}`);
+    console.log(`Client ${socket.id} left debate: ${debateId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
+// Export io for use in controllers
+export { io };
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -51,7 +82,7 @@ mongoose.connect(config.mongodb.uri, config.mongodb.options)
     
     // Start server
     const PORT = process.env.PORT || config.server.port;
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     });

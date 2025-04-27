@@ -374,6 +374,49 @@ export class ApiClient {
       throw error;
     }
   }
+
+  // Debate API
+  async joinDebate(id: string) {
+    const response = await fetch(`${API_BASE_URL}/debates/${id}/join`, {
+      method: 'POST'
+    });
+    return this.handleResponse(response);
+  }
+
+  async leaveDebate(id: string) {
+    const response = await fetch(`${API_BASE_URL}/debates/${id}/leave`, {
+      method: 'POST',
+      headers: this.getHeaders()
+    });
+    return this.handleResponse(response);
+  }
+
+  async sendMessage(id: string, message: { text: string; translatedText?: string }) {
+    const response = await fetch(`${API_BASE_URL}/debates/${id}/messages`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(message)
+    });
+    return this.handleResponse(response);
+  }
+
+  async updateDebateStatus(id: string, status: string) {
+    const response = await fetch(`${API_BASE_URL}/debates/${id}/status`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ status })
+    });
+    return this.handleResponse(response);
+  }
+
+  async updateDebateSettings(id: string, settings: any) {
+    const response = await fetch(`${API_BASE_URL}/debates/${id}/settings`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ settings })
+    });
+    return this.handleResponse(response);
+  }
 }
 
 // Create a singleton instance of ApiClient
