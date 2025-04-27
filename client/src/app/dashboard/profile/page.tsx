@@ -91,7 +91,7 @@ interface FormData {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     name: user?.name || "",
@@ -158,7 +158,7 @@ export default function ProfilePage() {
           toast.info("Password updated. Please log in again with your new password.");
         }
         setIsEditing(false);
-        
+        setUser(response.user);
         // Clear password fields
         setFormData(prev => ({
           ...prev,
