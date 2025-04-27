@@ -1,5 +1,6 @@
 import Debate from '../models/debate.model.js';
 import { io } from '../index.js';
+import { debateTimerService } from '../services/debateTimer.service.js';
 
 // Helper function to emit debate updates
 const emitDebateUpdate = (debateId, event, data) => {
@@ -33,22 +34,36 @@ export const getDebateById = async (req, res) => {
 
 export const createDebate = async (req, res) => {
   try {
-    const { title, description, languages, topics, capacity, startTime, settings } = req.body;
+    const { title, description, languages, topics, capacity, startTime, duration, settings } = req.body;
+    const now = new Date();
+    const debateStartTime = startTime ? new Date(startTime) : now;
+    
+    // Determine initial status based on start time
+    const status = debateStartTime > now ? 'scheduled' : 'active';
+    
     const debate = await Debate.create({
       title,
       description,
       languages,
       topics,
       capacity,
-      startTime,
+      startTime: debateStartTime,
+      duration: duration || 60, // Default to 60 minutes if not specified
       host: req.user.id,
+      status,
       participants: [{
         user: req.user.id,
-        joinedAt: new Date(),
+        joinedAt: now,
         isActive: true
       }],
       settings: settings || {}
     });
+
+    // Start the timer for the debate if it's active
+    if (status === 'active') {
+      await debateTimerService.startTimer(debate._id);
+    }
+
     res.status(201).json({ success: true, debate });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -102,6 +117,14 @@ export const leaveDebate = async (req, res) => {
   try {
     const debate = await Debate.findById(req.params.id);
     if (!debate) return res.status(404).json({ success: false, error: 'Debate not found' });
+
+    // Check if user is the host
+    if (debate.host.toString() === req.user.id) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Host cannot leave the debate. Please end the debate instead.' 
+      });
+    }
 
     const participant = debate.participants.find(
       p => p.user.toString() === req.user.id && p.isActive
@@ -177,24 +200,18 @@ export const updateDebateStatus = async (req, res) => {
     if (!debate) return res.status(404).json({ success: false, error: 'Debate not found' });
     
     if (debate.host.toString() !== req.user.id) {
-      return res.status(403).json({ success: false, error: 'Only host can update debate status' });
+      return res.status(403).json({ success: false, error: 'Only the host can update debate status' });
     }
 
     debate.status = status;
-    if (status === 'ended') {
-      debate.endTime = new Date();
-    }
-
     await debate.save();
+
     const populatedDebate = await Debate.findById(debate._id)
       .populate('host')
       .populate('participants.user')
       .populate('messages.user');
 
-    emitDebateUpdate(debate._id, 'status-updated', {
-      status,
-      endTime: debate.endTime
-    });
+    emitDebateUpdate(debate._id, 'status-updated', populatedDebate.status);
 
     res.json({ success: true, debate: populatedDebate });
   } catch (err) {
@@ -210,19 +227,86 @@ export const updateDebateSettings = async (req, res) => {
     if (!debate) return res.status(404).json({ success: false, error: 'Debate not found' });
     
     if (debate.host.toString() !== req.user.id) {
-      return res.status(403).json({ success: false, error: 'Only host can update debate settings' });
+      return res.status(403).json({ success: false, error: 'Only the host can update debate settings' });
     }
 
     debate.settings = { ...debate.settings, ...settings };
+    await debate.save();
+
+    const populatedDebate = await Debate.findById(debate._id)
+      .populate('host')
+      .populate('participants.user')
+      .populate('messages.user');
+
+    emitDebateUpdate(debate._id, 'settings-updated', populatedDebate.settings);
+
+    res.json({ success: true, debate: populatedDebate });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const endDebateController = async (req, res) => {
+  try {
+    const debate = await Debate.findById(req.params.id);
+    if (!debate) return res.status(404).json({ success: false, error: 'Debate not found' });
+
+    if (debate.host.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'Only the host can end the debate' });
+    }
+
+    if (debate.status === 'ended') {
+      return res.status(400).json({ success: false, error: 'Debate is already ended' });
+    }
+
+    debate.status = 'ended';
+    debate.endTime = new Date();
+    debate.participants.forEach(participant => {
+      participant.isActive = false;
+      participant.leftAt = new Date();
+    });
+
     await debate.save();
     const populatedDebate = await Debate.findById(debate._id)
       .populate('host')
       .populate('participants.user')
       .populate('messages.user');
 
-    emitDebateUpdate(debate._id, 'settings-updated', settings);
+    emitDebateUpdate(debate._id, 'debate-ended', populatedDebate);
 
     res.json({ success: true, debate: populatedDebate });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const getRecentConnections = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Find debates where the user is a participant
+    const debates = await Debate.find({
+      'participants.user': userId,
+      'participants.isActive': true
+    })
+    .sort({ 'participants.joinedAt': -1 })
+    .limit(10)
+    .populate('host')
+    .populate('participants.user')
+    .populate('messages.user');
+
+    // Format the response
+    const recentConnections = debates.map(debate => ({
+      debateId: debate._id,
+      title: debate.title,
+      status: debate.status,
+      host: debate.host,
+      participants: debate.participants.filter(p => p.isActive),
+      lastMessage: debate.messages[debate.messages.length - 1],
+      joinedAt: debate.participants.find(p => p.user._id.toString() === userId)?.joinedAt
+    }));
+
+    res.json({ success: true, connections: recentConnections });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

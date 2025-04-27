@@ -10,6 +10,7 @@ const debateSchema = new mongoose.Schema({
   },
   startTime: Date,
   endTime: Date,
+  duration: { type: Number, default: 60 }, // Duration in minutes
   host: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   languages: [String],
   topics: [String],

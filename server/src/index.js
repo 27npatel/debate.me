@@ -11,6 +11,7 @@ import authRoutes from './routes/auth.routes.js';
 import debateRoutes from './routes/debate.routes.js';
 import userRoutes from './routes/user.routes.js';
 import friendRoutes from './routes/friend.routes.js';
+import connectionRoutes from './routes/connection.routes.js';
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/debates', debateRoutes);
 app.use('/api/friends', friendRoutes);
+app.use('/api/connections', connectionRoutes);
 
 // WebSocket connection handling
 io.on('connection', (socket) => {
