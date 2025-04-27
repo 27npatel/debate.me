@@ -671,24 +671,18 @@ export default function DebatePage({ params }: { params: PageParams }) {
           </div>
         </div>
 
-        <Tabs defaultValue="chat" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="chat">
-              <MessageCircle className="h-4 w-4 mr-2" />
-              Chat
-            </TabsTrigger>
-            <TabsTrigger value="video">
-              <Video className="h-4 w-4 mr-2" />
-              Video
-            </TabsTrigger>
-            <TabsTrigger value="participants">
-              <Users className="h-4 w-4 mr-2" />
-              Participants
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="chat" className="space-y-4">
-            <Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Video Section - Takes up 2/3 of the space */}
+          <div className="lg:col-span-2 space-y-4">
+            <DebateVideo 
+              debateId={debateId as string} 
+              onTranscriptUpdate={handleTranscriptUpdate}
+              onTranscriptionStateChange={setIsTranscribing}
+            />
+          </div>
+
+          <div className="space-y-4">
+            <Card className="h-[calc(100vh-12rem)] flex flex-col">
               <CardHeader>
                 <CardTitle>Discussion</CardTitle>
                 <CardDescription>
@@ -710,8 +704,8 @@ export default function DebatePage({ params }: { params: PageParams }) {
                   )}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <ScrollArea ref={scrollAreaRef} className="h-[400px] pr-4">
+              <CardContent className="space-y-4 flex-1 flex flex-col min-h-0">
+                <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 pr-4">
                   <div className="space-y-4">
                     <AnimatePresence>
                       {debate.messages.map((msg, index) => (
@@ -755,15 +749,6 @@ export default function DebatePage({ params }: { params: PageParams }) {
                                 </p>
                               </div>
                             )}
-                            
-                            {/* Display all translations for debugging */}
-                            {msg.translatedTexts && Object.entries(msg.translatedTexts).map(([lang, text]) => (
-                              <div key={lang} className="mt-2 pt-2 border-t border-opacity-20">
-                                <p className="text-xs opacity-70">
-                                  {getLanguageDisplay(lang)}: {text}
-                                </p>
-                              </div>
-                            ))}
                           </div>
                         </motion.div>
                       ))}
@@ -772,8 +757,8 @@ export default function DebatePage({ params }: { params: PageParams }) {
                   </div>
                 </ScrollArea>
               </CardContent>
-              <CardFooter>
-                <div className="flex w-full gap-2">
+              <CardFooter className="border-t bg-white h-16 flex items-center">
+                <div className="flex w-full gap-2 justify-center items-center pt-5">
                   <Input
                     placeholder="Type your message..."
                     value={message}
@@ -795,116 +780,105 @@ export default function DebatePage({ params }: { params: PageParams }) {
                 </div>
               </CardFooter>
             </Card>
-          </TabsContent>
-          
-          <TabsContent value="video" className="space-y-4">
-            <div className="space-y-4">
-              <DebateVideo 
-                debateId={debateId as string} 
-                onTranscriptUpdate={handleTranscriptUpdate}
-                onTranscriptionStateChange={setIsTranscribing}
-              />
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="participants" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Participants</CardTitle>
-                <CardDescription>
-                  {participantCount} active participants
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {activeParticipants.map((participant) => (
-                  <div key={participant.user._id} className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      {participant.user.avatar ? (
-                        <img
-                          src={participant.user.avatar}
-                          alt={participant.user.name}
-                          className="h-full w-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-sm font-medium">
-                          {participant.user.name.charAt(0)}
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-medium">{participant.user.name}</div>
-                      {participant.user._id === debate.host._id && (
-                        <Badge variant="secondary" className="text-xs">
-                          Host
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+          </div>
+        </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="text-sm font-medium">Languages</div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {debate.languages.map((lang) => (
-                      <Badge key={lang} variant="outline">
-                        {getLanguageDisplay(lang)}
-                      </Badge>
-                    ))}
-                  </div>
+        {/* Participants Section - Below the main content */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Participants</CardTitle>
+            <CardDescription>
+              {participantCount} active participants
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {activeParticipants.map((participant) => (
+              <div key={participant.user._id} className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  {participant.user.avatar ? (
+                    <img
+                      src={participant.user.avatar}
+                      alt={participant.user.name}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-sm font-medium">
+                      {participant.user.name.charAt(0)}
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <div className="text-sm font-medium">Topics</div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {debate.topics.map((topic) => (
-                      <Badge key={topic} variant="outline">
-                        {topic}
-                      </Badge>
-                    ))}
+                  <div className="font-medium">{participant.user.name}</div>
+                  {participant.user._id === debate.host._id && (
+                    <Badge variant="secondary" className="text-xs">
+                      Host
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="text-sm font-medium">Languages</div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {debate.languages.map((lang) => (
+                  <Badge key={lang} variant="outline">
+                    {getLanguageDisplay(lang)}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm font-medium">Topics</div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {debate.topics.map((topic) => (
+                  <Badge key={topic} variant="outline">
+                    {topic}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            
+            {isHost && (
+              <div className="pt-4 border-t">
+                <div className="text-sm font-medium mb-2">Debate Settings</div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">Messages are automatically translated to each participant's preferred language</span>
                   </div>
                 </div>
-                
-                {isHost && (
-                  <div className="pt-4 border-t">
-                    <div className="text-sm font-medium mb-2">Debate Settings</div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Globe className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Messages are automatically translated to each participant's preferred language</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter>
-                {isHost ? (
-                  <Button 
-                    variant="destructive" 
-                    className="w-full"
-                    onClick={handleEndDebate}
-                    disabled={debate.status === 'ended'}
-                  >
-                    End Debate
-                  </Button>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={handleLeaveDebate}
-                  >
-                    Leave Debate
-                  </Button>
-                )}
-              </CardFooter>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </div>
+            )}
+          </CardContent>
+          <CardFooter>
+            {isHost ? (
+              <Button 
+                variant="destructive" 
+                className="w-full"
+                onClick={handleEndDebate}
+                disabled={debate.status === 'ended'}
+              >
+                End Debate
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={handleLeaveDebate}
+              >
+                Leave Debate
+              </Button>
+            )}
+          </CardFooter>
+        </Card>
       </div>
     </DashboardLayout>
   );
