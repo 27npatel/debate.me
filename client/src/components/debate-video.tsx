@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Bot } from "lucide-react"
+import { Mic, MicOff, Video, VideoOff, PhoneOff, MessageSquare, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import dynamic from "next/dynamic"
 
@@ -16,9 +16,10 @@ type IMicrophoneAudioTrack = any
 interface DebateVideoProps {
   debateId: string;
   onTranscriptUpdate?: (transcript: string) => void;
+  onTranscriptionStateChange?: (isTranscribing: boolean) => void;
 }
 
-const DebateVideoClient = ({ debateId, onTranscriptUpdate }: DebateVideoProps) => {
+const DebateVideoClient = ({ debateId, onTranscriptUpdate, onTranscriptionStateChange }: DebateVideoProps) => {
   const { toast } = useToast()
   const [inCall, setInCall] = useState(false)
   const [localTracks, setLocalTracks] = useState<[IMicrophoneAudioTrack, ICameraVideoTrack] | null>(null)
@@ -31,75 +32,239 @@ const DebateVideoClient = ({ debateId, onTranscriptUpdate }: DebateVideoProps) =
   const localVideoRef = useRef<HTMLDivElement>(null)
   const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID || ""
   
-  // Speech transcription related states and refs
+  // Transcription related states
   const transcriptContainerRef = useRef<HTMLDivElement>(null)
-  const recognitionRef = useRef<any>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioStreamRef = useRef<MediaStream | null>(null)
+  const fullRecordingChunks = useRef<Blob[]>([])   // store chunks until user stops
   const [transcript, setTranscript] = useState<string>("")
   const [isListening, setIsListening] = useState<boolean>(false)
-  const [hasStarted, setHasStarted] = useState<boolean>(false)
-  const [speechRecognitionSupported, setSpeechRecognitionSupported] = useState(false)
+  const [isProcessing, setIsProcessing] = useState<boolean>(false)
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
   
-  // Initialize Web Speech API
-  useEffect(() => {
-    // Check for Speech Recognition support
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    setSpeechRecognitionSupported(!!SpeechRecognition)
-    if (!SpeechRecognition) return
-    
-    const recognition = new SpeechRecognition()
-    recognitionRef.current = recognition
-    recognition.continuous = true
-    recognition.interimResults = true
-    recognition.lang = "en-US"
-    
-    let finalTranscript = ""
-    recognition.onresult = (e: any) => {
-      let interim = ""
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript
-        else interim += e.results[i][0].transcript
-      }
-      const newTranscript = finalTranscript + interim
-      setTranscript(newTranscript)
-      if (onTranscriptUpdate) {
-        onTranscriptUpdate(newTranscript)
-      }
-    }
-    
-    recognition.onerror = (e: any) => {
-      if (["no-speech", "audio-capture", "not-allowed"].includes(e.error)) {
-        stopListening()
-        toast({ title: "Transcription Error", description: e.error, variant: "destructive" })
-      }
-    }
-    
-    recognition.onend = () => {
-      if (isListening) {
-        try {
-          recognition.start()
-        } catch {}
-      }
-    }
-  }, [toast, onTranscriptUpdate])
+  // Check if browser supports MediaRecorder
+  const isMediaRecorderSupported = typeof MediaRecorder !== 'undefined'
   
-  // Push-to-talk handlers
-  const startListening = () => {
-    if (!speechRecognitionSupported || isListening) return
-    if (!hasStarted) {
-      setTranscript("")
-      setHasStarted(true)
+  // Toggle transcription on/off
+  const toggleTranscription = async () => {
+    if (isListening) {
+      // User pressed again → stop & send
+      await stopListeningAndSend();
+    } else {
+      // User pressed → start recording
+      await startListening();
     }
-    recognitionRef.current.start()
-    setIsListening(true)
   }
   
-  const stopListening = () => {
-    if (!speechRecognitionSupported || !isListening) return
-    recognitionRef.current.stop()
-    setIsListening(false)
+  // Start listening for speech
+  const startListening = async () => {
+    if (isListening) return
+    
+    try {
+      // Reset any previous errors
+      setTranscriptionError(null)
+      
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      audioStreamRef.current = stream
+      
+      // Create MediaRecorder with specific MIME type for better compatibility
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      })
+      mediaRecorderRef.current = mediaRecorder
+      
+      // Reset audio chunks
+      fullRecordingChunks.current = []
+      
+      // Set up event handlers
+      mediaRecorder.ondataavailable = async (event) => {
+        if (event.data.size > 0) {
+          fullRecordingChunks.current.push(event.data)
+          
+          // Process the chunk immediately
+          try {
+            setIsProcessing(true)
+            const webmBlob = new Blob([event.data], { type: 'audio/webm' })
+            const arrayBuf = await webmBlob.arrayBuffer()
+            const ctx = new AudioContext()
+            const audioBuf = await ctx.decodeAudioData(arrayBuf)
+            const wavBlob = await convertToWav(audioBuf)
+            
+            const text = await transcribeAudio(wavBlob)
+            if (text && text.trim()) {
+              setTranscript(prev => (prev ? prev + ' ' : '') + text)
+              if (onTranscriptUpdate) {
+                onTranscriptUpdate(text)
+              }
+            }
+          } catch (error) {
+            console.error("Error processing audio chunk:", error)
+          } finally {
+            setIsProcessing(false)
+          }
+        }
+      }
+      
+      // Start recording with 5-second slices for natural conversation flow
+      mediaRecorder.start(5000) // Process every 5 seconds
+      setIsListening(true)
+      onTranscriptionStateChange?.(true)
+      
+      console.log("Started recording audio for transcription")
+    } catch (error) {
+      console.warn("Error starting audio recording:", error)
+      setTranscriptionError("Failed to access microphone. Please check permissions.")
+      toast({ 
+        title: "Transcription Error", 
+        description: "Failed to access microphone. Please check permissions.", 
+        variant: "destructive" 
+      })
+    }
   }
   
-  // Auto-scroll transcript container
+  // Stop listening and cleanup
+  const stopListeningAndSend = async () => {
+    if (!isListening) return
+    
+    try {
+      setIsListening(false)
+      onTranscriptionStateChange?.(false)
+      
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop()
+      }
+      
+      // Stop all tracks in the stream
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach(track => track.stop())
+        audioStreamRef.current = null
+      }
+      
+      console.log("Stopped recording audio for transcription")
+    } catch (error) {
+      console.warn("Error stopping audio recording:", error)
+    }
+  }
+  
+  // Convert AudioBuffer to WAV format
+  const convertToWav = (audioBuffer: AudioBuffer): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const numOfChan = audioBuffer.numberOfChannels;
+      const length = audioBuffer.length * numOfChan * 2;
+      const buffer = new ArrayBuffer(length + 44);
+      const view = new DataView(buffer);
+      const channels = [];
+      let offset = 0;
+      let pos = 0;
+      
+      // Write WAV header
+      writeUTFBytes(view, 0, 'RIFF');
+      view.setUint32(4, 36 + length, true);
+      writeUTFBytes(view, 8, 'WAVE');
+      writeUTFBytes(view, 12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numOfChan, true);
+      view.setUint32(24, audioBuffer.sampleRate, true);
+      view.setUint32(28, audioBuffer.sampleRate * 2 * numOfChan, true);
+      view.setUint16(32, numOfChan * 2, true);
+      view.setUint16(34, 16, true);
+      writeUTFBytes(view, 36, 'data');
+      view.setUint32(40, length, true);
+      
+      // Write audio data
+      for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+        channels.push(audioBuffer.getChannelData(i));
+      }
+      
+      while (pos < audioBuffer.length) {
+        for (let i = 0; i < numOfChan; i++) {
+          const sample = Math.max(-1, Math.min(1, channels[i][pos]));
+          const int16 = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+          view.setInt16(44 + offset, int16, true);
+          offset += 2;
+        }
+        pos++;
+      }
+      
+      resolve(new Blob([buffer], { type: 'audio/wav' }));
+    });
+  };
+  
+  // Helper function to write UTF bytes
+  const writeUTFBytes = (view: DataView, offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+  
+  // Function to transcribe audio using Hugging Face API
+  const transcribeAudio = async (wavBlob: Blob): Promise<string> => {
+    const maxRetries = 3
+    let retryCount = 0
+    
+    while (retryCount < maxRetries) {
+      try {
+        const apiKey = process.env.NEXT_PUBLIC_HUGGINGFACE_API_KEY
+        
+        if (!apiKey) {
+          console.error("Hugging Face API key is missing")
+          throw new Error("API key is missing. Please check your environment variables.")
+        }
+        
+        console.log(`Sending audio to Hugging Face API (attempt ${retryCount + 1}/${maxRetries})...`)
+        
+        const response = await fetch('https://api-inference.huggingface.co/models/openai/whisper-small', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'audio/wav'
+          },
+          body: wavBlob
+        })
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`API error: ${response.status}`, errorText)
+          
+          if (response.status === 503) {
+            console.log("Model is loading, waiting before retry...")
+            await new Promise(resolve => setTimeout(resolve, 2000 * (retryCount + 1)))
+            retryCount++
+            continue
+          }
+          
+          throw new Error(`API error: ${response.status} - ${errorText}`)
+        }
+        
+        const data = await response.json()
+        console.log("Transcription result:", data)
+        
+        if (!data || !data.text) {
+          console.warn("No transcription text in response:", data)
+          return "No transcription available"
+        }
+        
+        return data.text
+      } catch (error) {
+        console.error("Error in transcription attempt:", error)
+        retryCount++
+        
+        if (retryCount === maxRetries) {
+          throw error
+        }
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+      }
+    }
+    
+    throw new Error("Failed to transcribe audio after multiple attempts")
+  }
+  
+  // Scroll transcript into view
   useEffect(() => {
     if (transcriptContainerRef.current) {
       transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight
@@ -145,7 +310,37 @@ const DebateVideoClient = ({ debateId, onTranscriptUpdate }: DebateVideoProps) =
       }
     };
     loadAgoraSDK();
+    
+    // Set mounted ref to true
+    isMountedRef.current = true;
+    
+    // Cleanup function
+    return () => {
+      isMountedRef.current = false;
+      
+      // Clean up transcription resources
+      stopListeningAndSend();
+    };
   }, [toast]);
+
+  // Handle visibility change (tab switching)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Tab is hidden, but we don't want to disconnect from the call
+        console.log("Tab hidden, call remains active");
+      } else if (document.visibilityState === 'visible' && inCall) {
+        // Tab is visible again and we're in a call
+        console.log("Tab visible again, call is active");
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [inCall]);
 
   // Set up event listeners for remote users
   useEffect(() => {
@@ -181,7 +376,9 @@ const DebateVideoClient = ({ debateId, onTranscriptUpdate }: DebateVideoProps) =
     setupEventListeners()
     // Clean up when component unmounts
     return () => {
-      client.removeAllListeners()
+      if (client) {
+        client.removeAllListeners()
+      }
     }
   }, [client])
 
@@ -232,6 +429,20 @@ const DebateVideoClient = ({ debateId, onTranscriptUpdate }: DebateVideoProps) =
     }
   }, [localTracks, localVideoTrackPlaying])
 
+  // Cleanup function for component unmount
+  useEffect(() => {
+    return () => {
+      // If we're in a call when the component unmounts, leave the call
+      if (inCall && client) {
+        console.log("Component unmounting, leaving call")
+        leaveCall()
+      }
+      
+      // Clean up transcription resources
+      stopListeningAndSend();
+    }
+  }, [inCall, client])
+
   // Join the channel and start the call
   const joinCall = async () => {
     if (!appId) {
@@ -251,8 +462,16 @@ const DebateVideoClient = ({ debateId, onTranscriptUpdate }: DebateVideoProps) =
       return
     }
     try {
+      // Check if already in a call
+      if (inCall) {
+        console.log("Already in a call, not joining again")
+        return
+      }
+      
       // Join the channel using the debate ID as the channel name
       const uid = await client.join(appId, debateId, null, null)
+      console.log("Joined channel with UID:", uid)
+      
       // Create local audio and video tracks with specific constraints for better compatibility
       const [microphoneTrack, cameraTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
         {},
@@ -281,26 +500,71 @@ const DebateVideoClient = ({ debateId, onTranscriptUpdate }: DebateVideoProps) =
   // Leave the call and clean up
   const leaveCall = async () => {
     if (!client) return
-    if (localTracks) {
-      localTracks[0].close()
-      localTracks[1].close()
+    
+    try {
+      console.log("Leaving call")
+      
+      // Check if we're actually in a call before trying to unpublish
+      if (inCall && localTracks) {
+        try {
+          // Unpublish tracks first
+          await client.unpublish(localTracks)
+          console.log("Unpublished local tracks")
+        } catch (unpublishError) {
+          console.error("Error unpublishing tracks:", unpublishError)
+          // Continue with cleanup even if unpublish fails
+        }
+        
+        // Close tracks
+        try {
+          localTracks[0].close()
+          localTracks[1].close()
+          console.log("Closed local tracks")
+        } catch (closeError) {
+          console.error("Error closing tracks:", closeError)
+        }
+      }
+      
+      // Leave the channel
+      try {
+        await client.leave()
+        console.log("Left channel")
+      } catch (leaveError) {
+        console.error("Error leaving channel:", leaveError)
+      }
+      
+      // Reset state
+      setLocalTracks(null)
+      setRemoteUsers([])
+      setInCall(false)
+      setLocalVideoTrackPlaying(false)
+    } catch (error) {
+      console.error("Error leaving call:", error)
+      toast({
+        title: "Error leaving call",
+        description: "There was a problem leaving the call. Please try refreshing the page.",
+        variant: "destructive",
+      })
     }
-    await client.leave()
-    setLocalTracks(null)
-    setRemoteUsers([])
-    setInCall(false)
-    setLocalVideoTrackPlaying(false)
   }
 
-  // Toggle audio mute
+  // Update the toggleAudio function to handle both audio and transcription
   const toggleAudio = async () => {
     if (localTracks) {
-      if (audioEnabled) {
-        await localTracks[0].setEnabled(false)
-      } else {
-        await localTracks[0].setEnabled(true)
+      try {
+        if (audioEnabled) {
+          // If audio is enabled, disable it and stop transcription
+          await localTracks[0].setEnabled(false)
+          await stopListeningAndSend()
+        } else {
+          // If audio is disabled, enable it and start transcription
+          await localTracks[0].setEnabled(true)
+          await startListening()
+        }
+        setAudioEnabled(!audioEnabled)
+      } catch (error) {
+        console.error("Error toggling audio:", error)
       }
-      setAudioEnabled(!audioEnabled)
     }
   }
 
@@ -405,56 +669,73 @@ const DebateVideoClient = ({ debateId, onTranscriptUpdate }: DebateVideoProps) =
             </div>
           )}
           <div className="col-span-1 md:col-span-2 flex justify-center gap-2 py-4">
-            {/* Push-to-talk button for transcription */}
-            <Button
-              variant={isListening ? "destructive" : "default"}
-              size="icon"
-              onMouseDown={startListening}
-              onMouseUp={stopListening}
-              onMouseLeave={stopListening}
-              title="Hold to transcribe speech"
-            >
-              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            </Button>
-            <Button
-              variant={audioEnabled ? "default" : "destructive"}
-              size="icon"
-              onClick={toggleAudio}
-              title={audioEnabled ? "Mute microphone" : "Unmute microphone"}
-            >
-              {audioEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-            </Button>
-            <Button
-              variant={videoEnabled ? "default" : "destructive"}
-              size="icon"
-              onClick={toggleVideo}
-              title={videoEnabled ? "Turn off camera" : "Turn on camera"}
-            >
-              {videoEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-            </Button>
-            <Button variant="destructive" onClick={leaveCall}>
-              <PhoneOff className="h-4 w-4 mr-2" />
-              Leave Call
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Single microphone button that handles both audio and transcription */}
+              {inCall && (
+                <Button
+                  variant={audioEnabled ? "default" : "destructive"}
+                  size="icon"
+                  onClick={toggleAudio}
+                  title={audioEnabled ? "Mute microphone" : "Unmute microphone"}
+                >
+                  {audioEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+                </Button>
+              )}
+              
+              {/* Video toggle button - only show if in call */}
+              {inCall && (
+                <Button
+                  variant={videoEnabled ? "default" : "destructive"}
+                  size="icon"
+                  onClick={toggleVideo}
+                  title={videoEnabled ? "Turn off camera" : "Turn on camera"}
+                >
+                  {videoEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+                </Button>
+              )}
+              
+              {/* Leave call button - only show if in call */}
+              {inCall && (
+                <Button variant="destructive" onClick={leaveCall}>
+                  <PhoneOff className="h-4 w-4 mr-2" />
+                  Leave Call
+                </Button>
+              )}
+            </div>
           </div>
           
-          {/* Live Transcript Card */}
-          {speechRecognitionSupported && (
+          {/* Live Transcript Card - always show if MediaRecorder is supported */}
+          {isMediaRecorderSupported && (
             <Card className="col-span-1 md:col-span-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Bot className="h-5 w-5" /> Live Transcript{" "}
-                  {isListening ? (
-                    <span className="text-xs text-green-500">(Listening)</span>
+                  <MessageSquare className="h-5 w-5" /> Live Transcript{" "}
+                  {isProcessing ? (
+                    <span className="text-xs text-yellow-500 flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Processing audio...
+                    </span>
+                  ) : isListening ? (
+                    <span className="text-xs text-green-500 flex items-center gap-1">
+                      <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" /> Recording
+                    </span>
                   ) : (
-                    <span className="text-xs text-gray-500">(Paused)</span>
+                    <span className="text-xs text-muted-foreground">(Click microphone to start)</span>
                   )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div ref={transcriptContainerRef} className="h-24 overflow-y-auto p-2 border rounded bg-muted text-sm">
-                  {transcript ||
-                    (!hasStarted ? <span className="text-muted-foreground">Hold mic button to speak...</span> : null)}
+                  {transcriptionError ? (
+                    <div className="text-red-500">{transcriptionError}</div>
+                  ) : transcript ? (
+                    transcript
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {isListening 
+                        ? "Listening... (transcription will appear here)"
+                        : "Start speaking to see transcription..."}
+                    </span>
+                  )}
                 </div>
               </CardContent>
             </Card>

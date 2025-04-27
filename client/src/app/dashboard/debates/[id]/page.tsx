@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Globe, MessageCircle, Mic, MicOff, Users, Volume2, Settings, Share, Clock, X, Check, Video } from "lucide-react";
+import { Globe, MessageCircle, Mic, MicOff, Users, Volume2, Settings, Share, Clock, X, Check, Video, MessageSquare } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
@@ -103,6 +103,8 @@ export default function DebatePage({ params }: { params: PageParams }) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [currentTranscript, setCurrentTranscript] = useState("");
 
   // Enhanced auto-scroll function
   const scrollToBottom = useCallback(() => {
@@ -546,8 +548,33 @@ export default function DebatePage({ params }: { params: PageParams }) {
 
   // Add handler for transcript updates
   const handleTranscriptUpdate = (transcript: string) => {
+    // Update the current transcript state
+    setCurrentTranscript(transcript);
+    
     // You can use this transcript to update the chat or store it
     console.log("Transcript updated:", transcript);
+    
+    // Optionally, you could send this transcript to the chat
+    if (transcript && transcript.trim() && socket && user && debate) {
+      // Check if user is a participant
+      const isParticipant = debate.participants.some(p => p.user && p.user._id === user._id && p.isActive);
+      if (isParticipant) {
+        // Create a message with the transcript
+        const newMessage = {
+          user: {
+            _id: user._id,
+            name: user.name,
+            avatar: user.avatar,
+            preferredLanguage: user.preferredLanguage
+          },
+          text: transcript.trim(),
+          timestamp: new Date().toISOString()
+        };
+        
+        // Emit the message through WebSocket
+        socket.emit('send-message', { debateId: debate._id, message: newMessage });
+      }
+    }
   };
 
   if (!user) {
@@ -771,10 +798,13 @@ export default function DebatePage({ params }: { params: PageParams }) {
           </TabsContent>
           
           <TabsContent value="video" className="space-y-4">
-            <DebateVideo 
-              debateId={debateId as string} 
-              onTranscriptUpdate={handleTranscriptUpdate}
-            />
+            <div className="space-y-4">
+              <DebateVideo 
+                debateId={debateId as string} 
+                onTranscriptUpdate={handleTranscriptUpdate}
+                onTranscriptionStateChange={setIsTranscribing}
+              />
+            </div>
           </TabsContent>
           
           <TabsContent value="participants" className="space-y-4">
