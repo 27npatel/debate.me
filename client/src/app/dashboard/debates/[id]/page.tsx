@@ -109,7 +109,14 @@ export default function DebatePage({ params }: { params: PageParams }) {
     if (messagesEndRef.current && scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        // Use a more reliable approach to scroll to bottom
+        setTimeout(() => {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+          // Double-check after a short delay to ensure it worked
+          setTimeout(() => {
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+          }, 50);
+        }, 0);
       }
     }
   }, []);
@@ -119,13 +126,19 @@ export default function DebatePage({ params }: { params: PageParams }) {
     console.log('Handling new message:', newMessage);
     setDebate(prev => {
       if (!prev) return null;
-      // Check if message already exists to prevent duplicates
-      const messageExists = prev.messages.some(
-        msg => msg.timestamp === newMessage.timestamp && msg.user._id === newMessage.user._id
+      
+      // More robust duplicate check
+      const isDuplicate = prev.messages.some(msg => 
+        msg.user._id === newMessage.user._id && 
+        msg.text === newMessage.text &&
+        Math.abs(new Date(msg.timestamp).getTime() - new Date(newMessage.timestamp).getTime()) < 1000
       );
-      if (messageExists) {
+
+      if (isDuplicate) {
+        console.log('Duplicate message detected, skipping');
         return prev;
       }
+
       return {
         ...prev,
         messages: [...prev.messages, newMessage]
@@ -203,6 +216,14 @@ export default function DebatePage({ params }: { params: PageParams }) {
   useEffect(() => {
     scrollToBottom();
   }, [debate?.messages, scrollToBottom]);
+
+  // Auto-scroll when component mounts or debate changes
+  useEffect(() => {
+    if (debate) {
+      // Use a small delay to ensure the DOM is fully rendered
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [debate, scrollToBottom]);
 
   useEffect(() => {
     if (!debateId) {
@@ -330,7 +351,7 @@ export default function DebatePage({ params }: { params: PageParams }) {
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || !debate || !user) {
+    if (!message.trim() || !debate || !user || !socket) {
       console.log('Cannot send message: missing required data', { 
         hasMessage: !!message.trim(), 
         hasDebate: !!debate, 
@@ -359,7 +380,7 @@ export default function DebatePage({ params }: { params: PageParams }) {
         const targetLang = participant.user.preferredLanguage || 'en';
         if (targetLang !== currentUserLang) {
           try {
-            const response = await api.translateText(message, currentUserLang, targetLang) as TranslationResponse;
+            const response = await api.translateText(message.trim(), currentUserLang, targetLang) as TranslationResponse;
             if (response.translatedText) {
               translatedTexts[targetLang] = response.translatedText;
             }
@@ -369,49 +390,38 @@ export default function DebatePage({ params }: { params: PageParams }) {
         }
       }
 
-      // Create a temporary message for immediate display
-      const tempMessage: Message = {
+      const newMessage = {
         user: {
           _id: user._id,
           name: user.name,
           avatar: user.avatar,
           preferredLanguage: user.preferredLanguage
         },
-        text: message,
+        text: message.trim(),
         translatedTexts,
         timestamp: new Date().toISOString()
       };
 
-      // Add the message to the UI immediately
-      setDebate(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          messages: [...prev.messages, tempMessage]
-        };
-      });
-
-      // Clear the input field
+      // Clear the input field immediately
       setMessage("");
 
-      // Send the message to the server
-      const response = await api.sendMessage(debate._id, {
-        text: message,
-        translatedTexts
-      }) as MessageResponse;
+      // Emit the message through WebSocket
+      socket.emit('send-message', { debateId: debate._id, message: newMessage });
 
-      // Emit message through socket
-      if (socket) {
-        socket.emit('send-message', { 
-          debateId: debate._id, 
-          message: tempMessage 
-        });
-      } else {
-        toast.error("Failed to send message");
-      }
+      // Save to database in the background
+      await api.sendMessage(debate._id, {
+        text: message.trim(),
+        translatedTexts
+      });
+      
+      // Ensure we scroll to bottom after sending a message
+      // Use multiple timeouts to ensure it works
+      scrollToBottom();
+      setTimeout(scrollToBottom, 100);
+      setTimeout(scrollToBottom, 300);
     } catch (err) {
-      toast.error("Failed to send message");
-      console.error("Error sending message:", err);
+      console.error('Error sending message:', err);
+      toast.error('Failed to send message. Please try again.');
     }
   };
 

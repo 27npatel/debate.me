@@ -119,7 +119,7 @@ export function DashboardLayout({ user, children }: DashboardLayoutProps) {
               <div className="flex items-center border-b px-6 py-4">
                 <Link href="/dashboard" className="flex items-center gap-2 font-semibold" onClick={() => setOpen(false)}>
                   <Globe className="h-6 w-6 text-primary" />
-                  <span>Langlobe</span>
+                  <span>Debatably</span>
                 </Link>
                 <Button
                   variant="ghost"
@@ -168,7 +168,7 @@ export function DashboardLayout({ user, children }: DashboardLayoutProps) {
           </Sheet>
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
             <Globe className="h-6 w-6 text-primary" />
-            <span>Langlobe</span>
+            <span>Debatably</span>
           </Link>
         </div>
         <div className="flex flex-1 items-center justify-end gap-4">
@@ -212,7 +212,7 @@ export function DashboardLayout({ user, children }: DashboardLayoutProps) {
           <div className="flex h-16 items-center border-b px-6">
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
               <Globe className="h-6 w-6 text-primary" />
-              <span>Langlobe</span>
+              <span>Debatably</span>
             </Link>
           </div>
           <nav className="flex flex-col gap-1 p-4">
