@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Globe, MessageCircle, Mic, MicOff, Users, Volume2, Settings, Share, Clock, X, Check } from "lucide-react";
+import { Globe, MessageCircle, Mic, MicOff, Users, Volume2, Settings, Share, Clock, X, Check, Video } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,6 +25,7 @@ import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import { useDebateSocket } from '@/hooks/use-debate-socket';
 import { motion, AnimatePresence } from 'framer-motion';
+import DebateVideo from "@/components/debate-video";
 
 
 interface ApiResponse<T> {
@@ -527,6 +528,12 @@ export default function DebatePage({ params }: { params: PageParams }) {
     }
   };
 
+  // Add handler for transcript updates
+  const handleTranscriptUpdate = (transcript: string) => {
+    // You can use this transcript to update the chat or store it
+    console.log("Transcript updated:", transcript);
+  };
+
   if (!user) {
     return (
       <DashboardLayout user={user}>
@@ -597,7 +604,7 @@ export default function DebatePage({ params }: { params: PageParams }) {
 
   return (
     <DashboardLayout user={user}>
-      <div className="space-y-6">
+      <div className="container mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{debate.title}</h1>
@@ -621,8 +628,23 @@ export default function DebatePage({ params }: { params: PageParams }) {
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="md:col-span-2 space-y-6">
+        <Tabs defaultValue="chat" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="chat">
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Chat
+            </TabsTrigger>
+            <TabsTrigger value="video">
+              <Video className="h-4 w-4 mr-2" />
+              Video
+            </TabsTrigger>
+            <TabsTrigger value="participants">
+              <Users className="h-4 w-4 mr-2" />
+              Participants
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="chat" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Discussion</CardTitle>
@@ -714,7 +736,8 @@ export default function DebatePage({ params }: { params: PageParams }) {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
                         handleSendMessage();
                       }
                     }}
@@ -729,9 +752,16 @@ export default function DebatePage({ params }: { params: PageParams }) {
                 </div>
               </CardFooter>
             </Card>
-          </div>
-
-          <div className="space-y-6">
+          </TabsContent>
+          
+          <TabsContent value="video" className="space-y-4">
+            <DebateVideo 
+              debateId={debateId as string} 
+              onTranscriptUpdate={handleTranscriptUpdate}
+            />
+          </TabsContent>
+          
+          <TabsContent value="participants" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Participants</CardTitle>
@@ -827,8 +857,8 @@ export default function DebatePage({ params }: { params: PageParams }) {
                 )}
               </CardFooter>
             </Card>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
