@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 
 // Routes
 import authRoutes from './routes/auth.routes.js';
+import debateRoutes from './routes/debate.routes.js';
 
 // Load env vars
 dotenv.config();
@@ -21,6 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/debates', debateRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

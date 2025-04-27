@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -24,17 +24,26 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 
-// Interface for debate object
+interface DebateUser {
+  _id: string;
+  name: string;
+  username: string;
+  preferredLanguage: string;
+  avatar?: string;
+}
+
 interface Debate {
-  id: string;
+  _id: string;
   title: string;
   description: string;
-  participants: number;
+  status: string;
+  startTime?: string;
+  host: DebateUser;
   languages: string[];
   topics: string[];
-  status: string;
-  startTime: string;
+  participants: DebateUser[];
   capacity: number;
 }
 
@@ -56,7 +65,7 @@ function DebateCard({ debate }: { debate: Debate }) {
             {isLive ? (
               <>
                 <Users className="mr-1 h-3 w-3" />
-                {debate.participants}/{debate.capacity}
+                {debate.participants.length}/{debate.capacity}
               </>
             ) : (
               <>
@@ -80,12 +89,12 @@ function DebateCard({ debate }: { debate: Debate }) {
           {!isLive && (
             <div className="flex items-center gap-1">
               <Users className="h-3 w-3 text-muted-foreground" />
-              <span className="text-muted-foreground">{debate.participants} registered</span>
+              <span className="text-muted-foreground">{debate.participants.length} registered</span>
             </div>
           )}
           <div className="flex flex-wrap gap-1">
             {debate.topics.map(topic => (
-              <Badge key={`${debate.id}-${topic}`} variant="outline" className="text-xs">
+              <Badge key={`${debate._id}-${topic}`} variant="outline" className="text-xs">
                 {topic}
               </Badge>
             ))}
@@ -94,7 +103,7 @@ function DebateCard({ debate }: { debate: Debate }) {
       </CardContent>
       <CardFooter className="pt-2">
         <Button asChild className="w-full" size="sm" variant={isLive ? "default" : "outline"}>
-          <Link href={`/dashboard/debates/${debate.id}`}>
+          <Link href={`/dashboard/debates/${debate._id}`}>
             {isLive ? (
               <>Join Now <ArrowUpRight className="ml-1 h-3 w-3" /></>
             ) : (
@@ -229,29 +238,48 @@ export default function DiscoverPage() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [participantRange, setParticipantRange] = useState([0, 15]);
+  const [debates, setDebates] = useState<Debate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDebates = async () => {
+      setLoading(true);
+      try {
+        const res = await api.getDebates() as { debates: Debate[] };
+        setDebates(res.debates || []);
+      } catch (err) {
+        const error = err as Error;
+        setError(error.message || "Failed to load debates");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDebates();
+  }, []);
 
   // Filter debates based on search, topics, languages, and status
   const filterDebates = (status: string) => {
     return debates
-      .filter(debate => debate.status === status)
-      .filter(debate => {
+      .filter((debate) => debate.status === status)
+      .filter((debate) => {
         if (!searchQuery) return true;
         return (
           debate.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          debate.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          debate.topics.some(topic => topic.toLowerCase().includes(searchQuery.toLowerCase()))
+          (debate.description && debate.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (debate.topics && debate.topics.some((topic: string) => topic.toLowerCase().includes(searchQuery.toLowerCase())))
         );
       })
-      .filter(debate => {
+      .filter((debate) => {
         if (selectedTopics.length === 0) return true;
-        return debate.topics.some(topic => selectedTopics.includes(topic));
+        return debate.topics && debate.topics.some((topic: string) => selectedTopics.includes(topic));
       })
-      .filter(debate => {
+      .filter((debate) => {
         if (selectedLanguages.length === 0) return true;
-        return debate.languages.some(lang => selectedLanguages.includes(lang));
+        return debate.languages && debate.languages.some((lang: string) => selectedLanguages.includes(lang));
       })
-      .filter(debate => {
-        return debate.participants >= participantRange[0] && debate.participants <= participantRange[1];
+      .filter((debate) => {
+        return debate.participants && debate.participants.length >= participantRange[0] && debate.participants.length <= participantRange[1];
       });
   };
 
@@ -369,7 +397,7 @@ export default function DiscoverPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Link href="/dashboard/debates/create">
+              <Link href={`/dashboard/debates/create`}>
                 <Button>
                   Create New Debate
                 </Button>
@@ -384,7 +412,7 @@ export default function DiscoverPage() {
               <TabsContent value="active" className="space-y-4 pt-4">
                 {filterDebates("active").length > 0 ? (
                   filterDebates("active").map(debate => (
-                    <DebateCard key={debate.id} debate={debate} />
+                    <DebateCard key={debate._id} debate={debate} />
                   ))
                 ) : (
                   <div className="rounded-lg border border-dashed p-8 text-center">
@@ -398,7 +426,7 @@ export default function DiscoverPage() {
               <TabsContent value="scheduled" className="space-y-4 pt-4">
                 {filterDebates("scheduled").length > 0 ? (
                   filterDebates("scheduled").map(debate => (
-                    <DebateCard key={debate.id} debate={debate} />
+                    <DebateCard key={debate._id} debate={debate} />
                   ))
                 ) : (
                   <div className="rounded-lg border border-dashed p-8 text-center">

@@ -197,6 +197,36 @@ export class ApiClient {
       this.setToken(null);
     }
   }
+
+  async getDebates() {
+    const response = await fetch(`${API_BASE_URL}/debates`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async getDebateById(id: string) {
+    const response = await fetch(`${API_BASE_URL}/debates/${id}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async createDebate(data: {
+    title: string;
+    description: string;
+    languages: string[];
+    topics: string[];
+    capacity: number;
+    startTime?: string;
+  }) {
+    const response = await fetch(`${API_BASE_URL}/debates`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse(response);
+  }
 }
 
 // Create a singleton instance of ApiClient
