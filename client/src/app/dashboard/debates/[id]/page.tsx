@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Globe, MessageCircle, Mic, MicOff, Users, Volume2, Settings, Share, Clock, X, Check, Video, MessageSquare } from "lucide-react";
+import { Globe, MessageCircle, Mic, MicOff, Users, Volume2, Settings, Share, Clock, X, Check, Video, MessageSquare, Send } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,6 +26,7 @@ import { api } from "@/lib/api";
 import { useDebateSocket } from '@/hooks/use-debate-socket';
 import { motion, AnimatePresence } from 'framer-motion';
 import DebateVideo from "@/components/debate-video";
+import { DebateAIAssistant } from "@/components/debate-ai-assistant";
 
 
 interface ApiResponse<T> {
@@ -704,8 +705,8 @@ export default function DebatePage({ params }: { params: PageParams }) {
                   )}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4 flex-1 flex flex-col min-h-0">
-                <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 pr-4">
+              <CardContent className="flex-1 overflow-hidden">
+                <ScrollArea ref={scrollAreaRef} className="h-full">
                   <div className="space-y-4">
                     <AnimatePresence>
                       {debate.messages.map((msg, index) => (
@@ -757,29 +758,43 @@ export default function DebatePage({ params }: { params: PageParams }) {
                   </div>
                 </ScrollArea>
               </CardContent>
-              <CardFooter className="border-t bg-white h-16 flex items-center">
-                <div className="flex w-full gap-2 justify-center items-center pt-5">
+              <CardFooter>
+                <div className="flex w-full gap-2">
                   <Input
-                    placeholder="Type your message..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
+                    placeholder="Type your message..."
                     disabled={!canSendMessages}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                   />
-                  <Button 
-                    onClick={(e) => handleSendMessage()}
-                    disabled={!canSendMessages}
-                  >
-                    Send
+                  <Button onClick={handleSendMessage} disabled={!canSendMessages}>
+                    <Send className="h-4 w-4" />
                   </Button>
                 </div>
               </CardFooter>
             </Card>
+
+            {/* AI Assistant */}
+            {debate.status === 'active' && (
+              <DebateAIAssistant
+                debateId={debateId as string}
+                topic={debate.topics[0]}
+                onNewQuestion={(question) => {
+                  // Add the AI-generated question to the chat
+                  if (user) {
+                    const newMessage: Message = {
+                      user: {
+                        _id: 'ai-assistant',
+                        name: 'AI Assistant',
+                      },
+                      text: question,
+                      timestamp: new Date().toISOString(),
+                    };
+                    handleNewMessage(newMessage);
+                  }
+                }}
+              />
+            )}
           </div>
         </div>
 

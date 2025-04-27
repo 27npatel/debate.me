@@ -7,6 +7,8 @@ const emitDebateUpdate = (debateId, event, data) => {
   io.to(`debate:${debateId}`).emit(event, data);
 };
 
+const AI_ASSISTANT_ID = '680e41ac2a3cb793aaf9e40f';
+
 export const getDebates = async (req, res) => {
   try {
     const debates = await Debate.find()
@@ -155,21 +157,24 @@ export const leaveDebate = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
   try {
-    const { text, translatedText, translatedTexts } = req.body;
+    const { text, translatedText, translatedTexts, isAI } = req.body;
     const debate = await Debate.findById(req.params.id);
     
     if (!debate) return res.status(404).json({ success: false, error: 'Debate not found' });
     
-    const participant = debate.participants.find(
-      p => p.user.toString() === req.user.id && p.isActive
-    );
+    // If it's an AI message, we don't need to check for participant
+    if (!isAI) {
+      const participant = debate.participants.find(
+        p => p.user.toString() === req.user.id && p.isActive
+      );
 
-    if (!participant) {
-      return res.status(400).json({ success: false, error: 'Not a participant in this debate' });
+      if (!participant) {
+        return res.status(400).json({ success: false, error: 'Not a participant in this debate' });
+      }
     }
 
     const newMessage = {
-      user: req.user.id,
+      user: isAI ? AI_ASSISTANT_ID : req.user.id,
       text,
       translatedText,
       translatedTexts,
@@ -183,12 +188,21 @@ export const sendMessage = async (req, res) => {
     // Get the last message (which is the one we just added)
     const lastMessage = debate.messages[debate.messages.length - 1];
     
-    // Populate the user field
-    await Debate.populate(lastMessage, {
-      path: 'user',
-      model: 'User',
-      select: '_id name avatar preferredLanguage'
-    });
+    // Populate the user field if it's not an AI message
+    if (!isAI) {
+      await Debate.populate(lastMessage, {
+        path: 'user',
+        model: 'User',
+        select: '_id name avatar preferredLanguage'
+      });
+    } else {
+      lastMessage.user = {
+        _id: AI_ASSISTANT_ID,
+        name: 'AI Assistant',
+        avatar: '',
+        preferredLanguage: 'en'
+      };
+    }
 
     emitDebateUpdate(debate._id, 'new-message', lastMessage);
 

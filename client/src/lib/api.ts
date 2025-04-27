@@ -674,19 +674,109 @@ export class ApiClient {
   }
 
   async getRecentConnections(): Promise<ConnectionsResponse> {
+    return this.fetchWithRetry<ConnectionsResponse>(
+      `${this.API_BASE_URL}/connections/recent`,
+      {
+        method: 'GET',
+        headers: this.getHeaders(),
+      }
+    );
+  }
+
+  // AI Endpoints
+  async initializeAIChat(channelId: string, topic: string) {
+    return this.fetchWithRetry<ApiResponse<{ success: boolean }>>(
+      `${this.API_BASE_URL}/ai/chat/initialize`,
+      {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ channelId, topic }),
+      }
+    );
+  }
+
+  async generateQuestions(topic: string, count: number = 3) {
     try {
-      const response = await this.fetchWithRetry<ConnectionsResponse>(
-        `${this.API_BASE_URL}/connections`,
+      const response = await this.fetchWithRetry<ApiResponse<{ questions: string[] }>>(
+        `${this.API_BASE_URL}/ai/questions/generate`,
         {
-          method: 'GET',
-          headers: this.getHeaders(),
+          method: 'POST',
+          body: JSON.stringify({ topic, count }),
         }
       );
-      return response;
+      
+      // Ensure we have a valid response with questions
+      if (!response.success || !response.data?.questions) {
+        throw new Error('Failed to generate questions');
+      }
+      
+      return {
+        success: true,
+        data: {
+          questions: response.data.questions
+        }
+      };
     } catch (error) {
-      console.error('Get recent connections error:', error);
-      throw error;
+      console.error('Error generating questions:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate questions'
+      };
     }
+  }
+
+  async processMessage(channelId: string, message: string, context: Record<string, unknown> = {}) {
+    return this.fetchWithRetry<ApiResponse<{ response: string }>>(
+      `${this.API_BASE_URL}/ai/message/process`,
+      {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ channelId, message, context }),
+      }
+    );
+  }
+
+  async moderateContent(content: string) {
+    return this.fetchWithRetry<ApiResponse<{
+      isAppropriate: boolean;
+      issues: string[];
+      suggestions: string[];
+    }>>(
+      `${this.API_BASE_URL}/ai/content/moderate`,
+      {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ content }),
+      }
+    );
+  }
+
+  async generateCounterArguments(argument: string) {
+    return this.fetchWithRetry<ApiResponse<{
+      counterArguments: Array<{
+        point: string;
+        evidence: string;
+        relevance: string;
+      }>;
+    }>>(
+      `${this.API_BASE_URL}/ai/counter-arguments/generate`,
+      {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ argument }),
+      }
+    );
+  }
+
+  async clearChatHistory(channelId: string) {
+    return this.fetchWithRetry<ApiResponse<{ success: boolean }>>(
+      `${this.API_BASE_URL}/ai/chat/clear`,
+      {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ channelId }),
+      }
+    );
   }
 }
 

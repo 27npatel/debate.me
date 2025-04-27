@@ -14,6 +14,7 @@ import userRoutes from './routes/user.routes.js';
 import friendRoutes from './routes/friend.routes.js';
 import connectionRoutes from './routes/connection.routes.js';
 import translateRoutes from './routes/translate.routes.js';
+import geminiRoutes from './routes/geminiRoutes.js';
 
 dotenv.config();
 
@@ -52,6 +53,7 @@ app.use('/api/debates', debateRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/connections', connectionRoutes);
 app.use('/api', translateRoutes);
+app.use('/api/ai', geminiRoutes);
 
 // WebSocket connection handling
 io.on('connection', (socket) => {
