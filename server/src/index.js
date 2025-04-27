@@ -21,19 +21,21 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
     methods: ['GET', 'POST'],
     credentials: true
   },
-  pingTimeout: 120000, // 120 seconds
+  pingTimeout: 60000, // Reduced to 60 seconds
   pingInterval: 25000, // 25 seconds
-  connectTimeout: 120000 // 120 seconds
+  connectTimeout: 60000 // Reduced to 60 seconds
 });
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  credentials: true
+  origin: process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(morgan('dev'));
 app.use(express.json());
@@ -100,7 +102,8 @@ export { io };
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  res.status(500).json({
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
     success: false,
     error: err.message || 'Internal server error',
     stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
@@ -108,11 +111,15 @@ app.use((err, req, res, next) => {
 });
 
 // Set server timeouts
-httpServer.keepAliveTimeout = 120000; // 120 seconds
-httpServer.headersTimeout = 120000; // 120 seconds
+httpServer.keepAliveTimeout = 60000; // Reduced to 60 seconds
+httpServer.headersTimeout = 60000; // Reduced to 60 seconds
 
 // Connect to MongoDB
-mongoose.connect(config.mongodb.uri, config.mongodb.options)
+mongoose.connect(config.mongodb.uri, {
+  ...config.mongodb.options,
+  serverSelectionTimeoutMS: 5000, // 5 seconds
+  socketTimeoutMS: 45000, // 45 seconds
+})
   .then(() => {
     console.log('Connected to MongoDB');
     
