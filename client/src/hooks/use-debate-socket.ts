@@ -26,11 +26,14 @@ export const useDebateSocket = (
     }
 
     // Connect to WebSocket server with the correct URL - using default namespace
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001', {
+    const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL!;
+    const socket = io(SOCKET_URL, {
+      path: '/socket.io',       // matches your server’s default
       withCredentials: true,
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000
+      reconnectionDelay: 1000,
     });
 
     socketRef.current = socket;
