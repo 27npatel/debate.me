@@ -26,7 +26,7 @@ export const getDebateById = async (req, res) => {
       .populate('participants.user')
       .populate('messages.user');
     if (!debate) return res.status(404).json({ success: false, error: 'Debate not found' });
-    res.json({ success: true, debate });
+    res.json({ success: true, data: debate });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -155,7 +155,7 @@ export const leaveDebate = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
   try {
-    const { text, translatedText } = req.body;
+    const { text, translatedText, translatedTexts } = req.body;
     const debate = await Debate.findById(req.params.id);
     
     if (!debate) return res.status(404).json({ success: false, error: 'Debate not found' });
@@ -172,21 +172,27 @@ export const sendMessage = async (req, res) => {
       user: req.user.id,
       text,
       translatedText,
-      isTranslated: !!translatedText,
+      translatedTexts,
+      isTranslated: !!translatedText || (translatedTexts && Object.keys(translatedTexts).length > 0),
       timestamp: new Date()
     };
 
     debate.messages.push(newMessage);
     await debate.save();
 
-    const populatedMessage = await Debate.populate(newMessage, {
+    // Get the last message (which is the one we just added)
+    const lastMessage = debate.messages[debate.messages.length - 1];
+    
+    // Populate the user field
+    await Debate.populate(lastMessage, {
       path: 'user',
-      model: 'User'
+      model: 'User',
+      select: '_id name avatar preferredLanguage'
     });
 
-    emitDebateUpdate(debate._id, 'new-message', populatedMessage);
+    emitDebateUpdate(debate._id, 'new-message', lastMessage);
 
-    res.json({ success: true, message: populatedMessage });
+    res.json({ success: true, message: lastMessage });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -230,7 +236,12 @@ export const updateDebateSettings = async (req, res) => {
       return res.status(403).json({ success: false, error: 'Only the host can update debate settings' });
     }
 
-    debate.settings = { ...debate.settings, ...settings };
+    // Always set autoTranslate to true since we're always translating messages
+    debate.settings = { 
+      ...debate.settings, 
+      ...settings,
+      autoTranslate: true 
+    };
     await debate.save();
 
     const populatedDebate = await Debate.findById(debate._id)
@@ -286,11 +297,10 @@ export const getRecentConnections = async (req, res) => {
     
     // Find debates where the user is a participant
     const debates = await Debate.find({
-      'participants.user': userId,
-      'participants.isActive': true
+      'participants.user': userId
     })
     .sort({ 'participants.joinedAt': -1 })
-    .limit(10)
+    .limit(3)
     .populate('host')
     .populate('participants.user')
     .populate('messages.user');
@@ -301,7 +311,7 @@ export const getRecentConnections = async (req, res) => {
       title: debate.title,
       status: debate.status,
       host: debate.host,
-      participants: debate.participants.filter(p => p.isActive),
+      participants: debate.participants,
       lastMessage: debate.messages[debate.messages.length - 1],
       joinedAt: debate.participants.find(p => p.user._id.toString() === userId)?.joinedAt
     }));

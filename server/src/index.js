@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import morgan from 'morgan';
 import config from './config/config.js';
 
 // Routes
@@ -12,6 +13,7 @@ import debateRoutes from './routes/debate.routes.js';
 import userRoutes from './routes/user.routes.js';
 import friendRoutes from './routes/friend.routes.js';
 import connectionRoutes from './routes/connection.routes.js';
+import translateRoutes from './routes/translate.routes.js';
 
 dotenv.config();
 
@@ -30,7 +32,9 @@ app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true
 }));
+app.use(morgan('dev'));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.get('/', (req, res) => {
@@ -42,21 +46,31 @@ app.use('/api/users', userRoutes);
 app.use('/api/debates', debateRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/connections', connectionRoutes);
+app.use('/api', translateRoutes);
 
 // WebSocket connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
 
   // Join debate room
-  socket.on('join-debate', (debateId) => {
+  socket.on('join-debate', (data) => {
+    const debateId = typeof data === 'string' ? data : data.debateId;
     socket.join(`debate:${debateId}`);
-    console.log(`Client ${socket.id} joined debate: ${debateId}`);
+    console.log(`Client ${socket.id} joined debate room: debate:${debateId}`);
   });
 
   // Leave debate room
-  socket.on('leave-debate', (debateId) => {
+  socket.on('leave-debate', (data) => {
+    const debateId = typeof data === 'string' ? data : data.debateId;
     socket.leave(`debate:${debateId}`);
-    console.log(`Client ${socket.id} left debate: ${debateId}`);
+    console.log(`Client ${socket.id} left debate room: debate:${debateId}`);
+  });
+
+  // Handle send-message event
+  socket.on('send-message', ({ debateId, message }) => {
+    console.log(`Broadcasting message to debate: ${debateId}`);
+    // Emit to all clients in the debate room, including the sender
+    io.to(`debate:${debateId}`).emit('new-message', message);
   });
 
   socket.on('disconnect', () => {

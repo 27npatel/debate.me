@@ -1,17 +1,21 @@
 import Connection from '../models/connection.model.js';
+import User from '../models/user.model.js';
 
 export const getRecentConnections = async (req, res) => {
   try {
-    const { limit = 10, skip = 0 } = req.query;
-    const connections = await Connection.find()
-      .sort({ connectedAt: -1 })
-      .skip(parseInt(skip))
-      .limit(parseInt(limit))
-      .populate('user')
-      .populate('debate');
+    const user = await User.findById(req.user.id).populate({
+      path: 'friends',
+      select: 'name username avatar lastActive',
+      options: { sort: { lastActive: -1 }, limit: 3 }
+    });
 
-    res.json({ success: true, connections });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    res.json({ success: true, connections: user.friends });
   } catch (err) {
+    console.error('Get recent connections error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };

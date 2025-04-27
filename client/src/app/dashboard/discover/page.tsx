@@ -34,22 +34,30 @@ interface DebateUser {
   avatar?: string;
 }
 
+interface DebateParticipant {
+  user: DebateUser;
+  joinedAt: string;
+  leftAt?: string;
+  isActive: boolean;
+}
+
 interface Debate {
   _id: string;
   title: string;
   description: string;
   status: string;
   startTime?: string;
+  endTime?: string;
   host: DebateUser;
   languages: string[];
   topics: string[];
-  participants: DebateUser[];
+  participants: DebateParticipant[];
   capacity: number;
 }
 
 // Debate card component
 function DebateCard({ debate }: { debate: Debate }) {
-  const isLive = debate.status === 'active';
+  const isLive = debate.status === 'active' && debate.startTime && new Date(debate.startTime) <= new Date();
   
   return (
     <Card className="overflow-hidden">
@@ -70,7 +78,7 @@ function DebateCard({ debate }: { debate: Debate }) {
             ) : (
               <>
                 <Calendar className="mr-1 h-3 w-3" />
-                {debate.startTime}
+                {new Date(debate.startTime!).toLocaleString()}
               </>
             )}
           </div>
@@ -251,6 +259,7 @@ export default function DiscoverPage() {
       } catch (err) {
         const error = err as Error;
         setError(error.message || "Failed to load debates");
+        setDebates([]);
       } finally {
         setLoading(false);
       }
@@ -261,7 +270,24 @@ export default function DiscoverPage() {
   // Filter debates based on search, topics, languages, and status
   const filterDebates = (status: string) => {
     return debates
-      .filter((debate) => debate.status === status)
+      .filter((debate) => {
+        const now = new Date();
+        const startTime = debate.startTime ? new Date(debate.startTime) : null;
+        
+        if (status === 'active') {
+          // A debate is active only if:
+          // 1. status is 'active' AND
+          // 2. startTime is in the past
+          return debate.status === 'active' && startTime && startTime <= now;
+        } else if (status === 'scheduled') {
+          // A debate is scheduled if:
+          // 1. status is 'scheduled' OR
+          // 2. status is 'active' but startTime is in the future
+          return debate.status === 'scheduled' || 
+                 (debate.status === 'active' && startTime && startTime > now);
+        }
+        return false;
+      })
       .filter((debate) => {
         if (!searchQuery) return true;
         return (

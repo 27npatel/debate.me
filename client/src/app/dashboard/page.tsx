@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   MessageSquare,
@@ -22,6 +22,66 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+
+interface Debate {
+  _id: string;
+  title: string;
+  description: string;
+  status: string;
+  startTime?: string;
+  endTime?: string;
+  host: {
+    _id: string;
+    name: string;
+    avatar?: string;
+  };
+  participants: {
+    user: {
+      _id: string;
+      name: string;
+      avatar?: string;
+    };
+    joinedAt: string;
+    leftAt?: string;
+    isActive: boolean;
+  }[];
+  languages: string[];
+  topics: string[];
+  capacity: number;
+}
+
+interface Connection {
+  debateId: string;
+  title: string;
+  status: string;
+  host: {
+    _id: string;
+    name: string;
+    avatar?: string;
+  };
+  participants: {
+    user: {
+      _id: string;
+      name: string;
+      avatar?: string;
+    };
+    joinedAt: string;
+    leftAt?: string;
+    isActive: boolean;
+  }[];
+  lastMessage?: {
+    text: string;
+    timestamp: string;
+    user: {
+      _id: string;
+      name: string;
+      avatar?: string;
+    };
+  };
+  joinedAt: string;
+}
 
 // Mock data for features not yet implemented
 const mockData = {
@@ -102,28 +162,80 @@ const mockData = {
   ]
 };
 
+function getTimeAgo(date: Date) {
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) return 'just now';
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  return date.toLocaleDateString();
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debates, setDebates] = useState<Debate[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [debatesResponse, connectionsResponse] = await Promise.all([
+          api.getDebates(),
+          api.getRecentConnections()
+        ]);
+
+        if (debatesResponse.success && debatesResponse.debates) {
+          setDebates(debatesResponse.debates);
+        }
+
+        if (connectionsResponse.success && connectionsResponse.connections) {
+          // Map the connections to match the expected format
+          const formattedConnections = connectionsResponse.connections
+            .filter(conn => conn && conn._id && conn.name) // Filter out invalid connections
+            .map(conn => ({
+              debateId: `conn-${conn._id}`,
+              title: '',
+              status: 'active',
+              host: {
+                _id: conn._id,
+                name: conn.name,
+                avatar: conn.avatar || '',
+                username: conn.username || ''
+              },
+              participants: [{ 
+                user: {
+                  _id: conn._id,
+                  name: conn.name,
+                  avatar: conn.avatar || '',
+                  username: conn.username || ''
+                }, 
+                joinedAt: conn.lastActive || new Date().toISOString(), 
+                isActive: true 
+              }],
+              joinedAt: conn.lastActive || new Date().toISOString()
+            }));
+
+          setConnections(formattedConnections);
+        }
+      } catch (err) {
+        console.error('Error in fetchData:', err);
+        setError("Failed to load data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   if (!user) {
     return (
-      <DashboardLayout user={{ 
-        _id: "",
-        username: "",
-        name: "",
-        email: "",
-        preferredLanguage: "en",
-        bio: "",
-        location: "",
-        avatar: "",
-        interests: [],
-        socialLinks: {},
-        rating: 0,
-        debateStats: { won: 0, lost: 0, drawn: 0 },
-        createdAt: "",
-        lastActive: ""
-      }}>
+      <DashboardLayout user={user}>
         <div className="flex h-[80vh] items-center justify-center">
           <div className="text-center">
             <h1 className="text-2xl font-bold">Please log in</h1>
@@ -133,6 +245,57 @@ export default function DashboardPage() {
       </DashboardLayout>
     );
   }
+
+  // Filter debates based on user's participation and status
+  const userDebates = debates.filter(debate => 
+    debate.participants.some(p => p.user._id === user._id)
+  );
+
+  const activeDebates = userDebates.filter(debate => {
+    // A debate is active only if:
+    // 1. status is 'active' AND
+    // 2. startTime is in the past AND
+    // 3. endTime is not set or in the future
+    const now = new Date();
+    const startTime = debate.startTime ? new Date(debate.startTime) : null;
+    const endTime = debate.endTime ? new Date(debate.endTime) : null;
+    
+    return debate.status === 'active' && 
+           startTime && startTime <= now && 
+           (!endTime || endTime > now);
+  });
+
+  const scheduledDebates = userDebates.filter(debate => {
+    // A debate is scheduled only if:
+    // 1. status is 'scheduled' OR
+    // 2. status is 'active' but startTime is in the future
+    const now = new Date();
+    const startTime = debate.startTime ? new Date(debate.startTime) : null;
+    
+    return debate.status === 'scheduled' || 
+           (debate.status === 'active' && startTime && startTime > now);
+  });
+
+  const pastDebates = userDebates.filter(debate => {
+    // A debate is past only if:
+    // 1. status is 'ended' OR
+    // 2. endTime is in the past
+    const now = new Date();
+    const endTime = debate.endTime ? new Date(debate.endTime) : null;
+    
+    return debate.status === 'ended' || 
+           (endTime && endTime <= now);
+  });
+
+  // Calculate total debates and connections
+  const totalDebates = userDebates.length;
+  const uniqueConnectionsCount = new Set(
+    userDebates.flatMap(debate => 
+      debate.participants
+        .filter(p => p.user._id !== user._id)
+        .map(p => p.user._id)
+    )
+  ).size;
 
   return (
     <DashboardLayout user={user}>
@@ -151,8 +314,8 @@ export default function DashboardPage() {
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockData.totalDebates}</div>
-              <p className="text-xs text-muted-foreground">+2 from last month</p>
+              <div className="text-2xl font-bold">{totalDebates}</div>
+              <p className="text-xs text-muted-foreground">+{activeDebates.length} active</p>
             </CardContent>
           </Card>
           <Card>
@@ -161,8 +324,8 @@ export default function DashboardPage() {
               <Globe className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockData.wordsTranslated}</div>
-              <p className="text-xs text-muted-foreground">+520 from last week</p>
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-xs text-muted-foreground">Coming soon</p>
             </CardContent>
           </Card>
           <Card>
@@ -171,8 +334,8 @@ export default function DashboardPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockData.connections}</div>
-              <p className="text-xs text-muted-foreground">+4 from last month</p>
+              <div className="text-2xl font-bold">{uniqueConnectionsCount}</div>
+              <p className="text-xs text-muted-foreground">People you've debated with</p>
             </CardContent>
           </Card>
           <Card>
@@ -200,20 +363,20 @@ export default function DashboardPage() {
               </div>
 
               <TabsContent value="active" className="space-y-4">
-                {mockData.recentDebates.filter(debate => debate.active).map(debate => (
-                  <Card key={debate.id}>
+                {activeDebates.map(debate => (
+                  <Card key={debate._id}>
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
                         <CardTitle>{debate.title}</CardTitle>
                         <Badge className="bg-green-500">Live</Badge>
                       </div>
                       <CardDescription>
-                        {debate.participants} participants • {debate.languages.join(", ")}
+                        {debate.participants.filter(p => p.isActive).length} participants • {debate.languages.join(", ")}
                       </CardDescription>
                     </CardHeader>
                     <CardFooter className="pt-2">
                       <Button asChild size="sm" className="w-full">
-                        <Link href={`/dashboard/debates/${debate.id}`}>
+                        <Link href={`/dashboard/debates/${debate._id}`}>
                           Join Now
                         </Link>
                       </Button>
@@ -221,7 +384,7 @@ export default function DashboardPage() {
                   </Card>
                 ))}
 
-                {mockData.recentDebates.filter(debate => debate.active).length === 0 && (
+                {activeDebates.length === 0 && (
                   <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
                     <MessageSquare className="h-10 w-10 text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No active debates</h3>
@@ -236,23 +399,23 @@ export default function DashboardPage() {
               </TabsContent>
 
               <TabsContent value="scheduled" className="space-y-4">
-                {mockData.upcomingDebates.map(debate => (
-                  <Card key={debate.id}>
+                {scheduledDebates.map(debate => (
+                  <Card key={debate._id}>
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
                         <CardTitle>{debate.title}</CardTitle>
                         <span className="flex items-center text-xs text-muted-foreground">
                           <Calendar className="mr-1 h-3 w-3" />
-                          {debate.date}
+                          {new Date(debate.startTime!).toLocaleString()}
                         </span>
                       </div>
                       <CardDescription>
-                        {debate.participants} participants • Hosted by {debate.host}
+                        {debate.participants.length} participants • Hosted by {debate.host.name}
                       </CardDescription>
                     </CardHeader>
                     <CardFooter className="pt-2">
                       <Button asChild size="sm" variant="outline" className="w-full">
-                        <Link href={`/dashboard/debates/${debate.id}`}>
+                        <Link href={`/dashboard/debates/${debate._id}`}>
                           View Details
                         </Link>
                       </Button>
@@ -260,7 +423,7 @@ export default function DashboardPage() {
                   </Card>
                 ))}
 
-                {mockData.upcomingDebates.length === 0 && (
+                {scheduledDebates.length === 0 && (
                   <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
                     <Calendar className="h-10 w-10 text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No scheduled debates</h3>
@@ -275,23 +438,23 @@ export default function DashboardPage() {
               </TabsContent>
 
               <TabsContent value="past" className="space-y-4">
-                {mockData.recentDebates.filter(debate => !debate.active).map(debate => (
-                  <Card key={debate.id}>
+                {pastDebates.map(debate => (
+                  <Card key={debate._id}>
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
                         <CardTitle>{debate.title}</CardTitle>
                         <span className="flex items-center text-xs text-muted-foreground">
                           <Clock className="mr-1 h-3 w-3" />
-                          {debate.lastActive}
+                          {new Date(debate.endTime!).toLocaleString()}
                         </span>
                       </div>
                       <CardDescription>
-                        {debate.participants} participants • {debate.languages.join(", ")}
+                        {debate.participants.length} participants • {debate.languages.join(", ")}
                       </CardDescription>
                     </CardHeader>
                     <CardFooter className="pt-2">
                       <Button asChild size="sm" variant="outline" className="w-full">
-                        <Link href={`/dashboard/debates/${debate.id}`}>
+                        <Link href={`/dashboard/debates/${debate._id}`}>
                           View Transcript
                         </Link>
                       </Button>
@@ -299,7 +462,7 @@ export default function DashboardPage() {
                   </Card>
                 ))}
 
-                {mockData.recentDebates.filter(debate => !debate.active).length === 0 && (
+                {pastDebates.length === 0 && (
                   <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
                     <BarChart className="h-10 w-10 text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No past debates</h3>
@@ -380,39 +543,54 @@ export default function DashboardPage() {
               <CardHeader>
                 <CardTitle>Recent Connections</CardTitle>
                 <CardDescription>
-                  People you've debated with recently
+                  Your most recently active friends
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockData.recentConnections.map((connection) => (
-                    <div key={connection.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 overflow-hidden">
-                          {connection.image ? (
-                            <img
-                              src={connection.image}
-                              alt={connection.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-primary text-primary-foreground">
-                              {connection.name.charAt(0)}
+                  {connections.map((connection) => {
+                    if (!connection?.host?.name) return null;
+                    
+                    const joinedDate = new Date(connection.joinedAt);
+                    const timeAgo = getTimeAgo(joinedDate);
+
+                    return (
+                      <div key={connection.debateId} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 overflow-hidden">
+                            {connection.host.avatar ? (
+                              <img
+                                src={connection.host.avatar}
+                                alt={connection.host.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-primary text-primary-foreground">
+                                {connection.host.name.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium">{connection.host.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Last active {timeAgo}
                             </div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium">{connection.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {connection.language} • {connection.lastInteraction}
                           </div>
                         </div>
+                        <Button asChild size="sm" variant="ghost">
+                          <Link href={`/dashboard/profile/${connection.host._id}`}>
+                            View Profile
+                          </Link>
+                        </Button>
                       </div>
-                      <Button size="sm" variant="ghost">
-                        Message
-                      </Button>
+                    );
+                  })}
+
+                  {connections.length === 0 && (
+                    <div className="text-center text-sm text-muted-foreground py-4">
+                      No recent connections yet
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
               <CardFooter>

@@ -97,11 +97,6 @@ export function DashboardLayout({ user, children }: DashboardLayoutProps) {
       title: "Analytics"
     },
     {
-      href: "/dashboard/profile",
-      icon: <UserCircle className="h-4 w-4" />,
-      title: "Profile"
-    },
-    {
       href: "/dashboard/settings",
       icon: <Settings className="h-4 w-4" />,
       title: "Settings"
@@ -200,9 +195,6 @@ export function DashboardLayout({ user, children }: DashboardLayoutProps) {
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/dashboard/profile">Profile</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
                 <Link href="/dashboard/settings">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -257,9 +249,6 @@ export function DashboardLayout({ user, children }: DashboardLayoutProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard/profile">Profile</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
                     <Link href="/dashboard/settings">Settings</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -299,9 +288,6 @@ export function DashboardLayout({ user, children }: DashboardLayoutProps) {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/profile">Profile</Link>
-                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard/settings">Settings</Link>
                   </DropdownMenuItem>

@@ -22,9 +22,11 @@ const debateSchema = new mongoose.Schema({
   }],
   capacity: { type: Number, default: 10 },
   messages: [{
+    _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     text: String,
     translatedText: String,
+    translatedTexts: { type: Map, of: String },
     timestamp: { type: Date, default: Date.now },
     isTranslated: { type: Boolean, default: false }
   }],

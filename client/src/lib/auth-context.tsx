@@ -38,13 +38,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      const { user } = await api.getCurrentUser();
-      setUser(user);
+      api.setToken(token);
+      const response = await api.getCurrentUser();
+      
+      if (response.success) {
+        setUser(response.user);
+      } else {
+        // Clear token if the response indicates failure
+        localStorage.removeItem('token');
+        api.setToken(null);
+      }
     } catch (error) {
       console.error('Auth check failed:', error);
       if (typeof window !== 'undefined') {
         // Only clear token on client-side
         localStorage.removeItem('token');
+        api.setToken(null);
       }
     } finally {
       setIsLoading(false);
@@ -53,7 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const { user } = await api.login({ email, password });
+      const { user, token } = await api.login({ email, password });
+      if (token) {
+        localStorage.setItem('token', token);
+        api.setToken(token);
+      }
       setUser(user);
       router.push('/dashboard');
     } catch (error) {

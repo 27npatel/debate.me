@@ -1,7 +1,5 @@
 "use client";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
-
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -68,7 +66,59 @@ interface UsersResponse {
   users: User[];
 }
 
+interface Debate {
+  _id: string;
+  title: string;
+  description: string;
+  status: string;
+  startTime?: string;
+  endTime?: string;
+  host: User;
+  languages: string[];
+  topics: string[];
+  participants: {
+    user: User;
+    joinedAt: string;
+    leftAt?: string;
+    isActive: boolean;
+  }[];
+  capacity: number;
+}
+
+interface Message {
+  user: User;
+  text: string;
+  translatedText?: string;
+  translatedTexts?: Record<string, string>;
+  timestamp: string;
+}
+
+interface Connection {
+  _id: string;
+  name: string;
+  username: string;
+  avatar?: string;
+  lastActive: string;
+}
+
+interface ConnectionsResponse {
+  success: boolean;
+  connections: Connection[];
+}
+
+interface DebateSettings {
+  allowAnonymous: boolean;
+  requireApproval: boolean;
+  autoTranslate: boolean;
+}
+
+interface ApiError extends Error {
+  status?: number;
+  message: string;
+}
+
 export class ApiClient {
+  public API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
   private token: string | null = null;
 
   constructor() {
@@ -76,7 +126,7 @@ export class ApiClient {
     // Token will be initialized when needed
   }
 
-  private getHeaders(): HeadersInit {
+  public getHeaders(): HeadersInit {
     // Lazy initialization of token when headers are needed
     if (typeof window !== 'undefined' && !this.token) {
       this.token = localStorage.getItem('token');
@@ -94,41 +144,67 @@ export class ApiClient {
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
-    if (!response.ok) {
-      try {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      } catch (e) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    let data;
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        // If not JSON, throw a more specific error
+        throw new Error('Server returned non-JSON response');
       }
+    } catch (error) {
+      // If we can't parse the response as JSON, it's likely a server error
+      const apiError = new Error('Server error') as ApiError;
+      apiError.status = response.status;
+      throw apiError;
     }
     
-    try {
-      return await response.json();
-    } catch (e) {
-      throw new Error('Failed to parse response data');
+    if (!response.ok) {
+      const error = new Error(data.message || 'Request failed') as ApiError;
+      error.status = response.status;
+      throw error;
     }
+    
+    return data;
   }
 
   private async fetchWithRetry<T>(url: string, options: RequestInit, retries = 3): Promise<T> {
     try {
       const response = await fetch(url, {
         ...options,
-        credentials: 'include',
         headers: {
           ...options.headers,
-          'Accept': 'application/json',
+          ...this.getHeaders(),
         },
       });
-      return await this.handleResponse<T>(response);
+
+      const data = await this.handleResponse<T>(response);
+      return data;
     } catch (error) {
-      if (retries > 0 && error instanceof Error && error.message.includes('Failed to fetch')) {
-        console.log(`Retrying request to ${url}... (${retries} attempts left)`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return this.fetchWithRetry(url, options, retries - 1);
+      const apiError = error as ApiError;
+      
+      // Only retry on network errors or 5xx server errors
+      if (retries > 0 && error instanceof Error) {
+        if (error.message.includes('Network') || 
+            error.message.includes('Server') || 
+            (apiError.status && apiError.status >= 500)) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return this.fetchWithRetry(url, options, retries - 1);
+        }
       }
-      console.error(`Network error for ${url}:`, error);
-      throw new Error(`Failed to connect to server. Please make sure the server is running at ${API_BASE_URL}`);
+      
+      // Only logout on actual authentication errors (401 or 403)
+      if (apiError.status === 401 || apiError.status === 403) {
+        this.setToken(null);
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+        throw new Error('Session expired. Please login again.');
+      }
+      
+      // For other errors, just throw them without logging out
+      throw error;
     }
   }
 
@@ -146,7 +222,7 @@ export class ApiClient {
   async signup(data: SignupData): Promise<AuthResponse> {
     try {
       const response = await this.fetchWithRetry<AuthResponse>(
-        `${API_BASE_URL}/auth/signup`,
+        `${this.API_BASE_URL}/auth/signup`,
         {
           method: 'POST',
           headers: this.getHeaders(),
@@ -168,7 +244,7 @@ export class ApiClient {
   async login(data: LoginData): Promise<AuthResponse> {
     try {
       const response = await this.fetchWithRetry<AuthResponse>(
-        `${API_BASE_URL}/auth/login`,
+        `${this.API_BASE_URL}/auth/login`,
         {
           method: 'POST',
           headers: this.getHeaders(),
@@ -189,13 +265,45 @@ export class ApiClient {
 
   async getCurrentUser(): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
-        headers: this.getHeaders(),
-      });
-
-      return this.handleResponse<AuthResponse>(response);
+      const response = await this.fetchWithRetry<AuthResponse>(
+        `${this.API_BASE_URL}/auth/me`,
+        {
+          method: 'GET',
+          headers: this.getHeaders(),
+        }
+      );
+      return response;
     } catch (error) {
-      console.error('Get current user error:', error);
+      // If server is not running or returns HTML, don't log out
+      if (error instanceof Error && 
+          (error.message.includes('Failed to fetch') || 
+           error.message.includes('Server returned non-JSON response'))) {
+        console.error('Server error:', error);
+        // Return a default response instead of throwing
+        return {
+          success: false,
+          user: {
+            _id: '',
+            username: '',
+            name: '',
+            email: '',
+            preferredLanguage: 'en',
+            bio: '',
+            location: '',
+            avatar: '',
+            interests: [],
+            socialLinks: {},
+            rating: 1000,
+            debateStats: {
+              won: 0,
+              lost: 0,
+              drawn: 0
+            },
+            createdAt: '',
+            lastActive: ''
+          }
+        };
+      }
       throw error;
     }
   }
@@ -203,7 +311,7 @@ export class ApiClient {
   async updateProfile(data: Partial<User> & { password?: string }): Promise<AuthResponse> {
     try {
       console.log('Updating profile with data:', data); // Debug log
-      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      const response = await fetch(`${this.API_BASE_URL}/auth/profile`, {
         method: 'PUT',
         headers: this.getHeaders(),
         body: JSON.stringify(data),
@@ -226,7 +334,7 @@ export class ApiClient {
   async logout(): Promise<void> {
     try {
       // Attempt to call the logout endpoint
-      await fetch(`${API_BASE_URL}/auth/logout`, {
+      await fetch(`${this.API_BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: this.getHeaders(),
       });
@@ -239,17 +347,35 @@ export class ApiClient {
   }
 
   async getDebates() {
-    const response = await fetch(`${API_BASE_URL}/debates`, {
-      headers: this.getHeaders(),
-    });
-    return this.handleResponse(response);
+    try {
+      const response = await this.fetchWithRetry<{ success: boolean; debates: Debate[] }>(
+        `${this.API_BASE_URL}/debates`,
+        {
+          method: 'GET',
+          headers: this.getHeaders(),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Get debates error:', error);
+      throw error;
+    }
   }
 
   async getDebateById(id: string) {
-    const response = await fetch(`${API_BASE_URL}/debates/${id}`, {
-      headers: this.getHeaders(),
-    });
-    return this.handleResponse(response);
+    try {
+      const response = await this.fetchWithRetry<ApiResponse<Debate>>(
+        `${this.API_BASE_URL}/debates/${id}`,
+        {
+          method: 'GET',
+          headers: this.getHeaders(),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Get debate by id error:', error);
+      throw error;
+    }
   }
 
   async createDebate(data: {
@@ -259,19 +385,28 @@ export class ApiClient {
     topics: string[];
     capacity: number;
     startTime?: string;
+    timeLimit?: number;
   }) {
-    const response = await fetch(`${API_BASE_URL}/debates`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(data),
-    });
-    return this.handleResponse(response);
+    try {
+      const response = await this.fetchWithRetry<{ success: boolean; debate: Debate }>(
+        `${this.API_BASE_URL}/debates`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(data),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Create debate error:', error);
+      throw error;
+    }
   }
 
   async getFriends(): Promise<FriendsResponse> {
     try {
       const response = await this.fetchWithRetry<FriendsResponse>(
-        `${API_BASE_URL}/friends`,
+        `${this.API_BASE_URL}/friends`,
         { headers: this.getHeaders() }
       );
       return response;
@@ -284,7 +419,7 @@ export class ApiClient {
   async getFriendRequests(): Promise<FriendRequestsResponse> {
     try {
       const response = await this.fetchWithRetry<FriendRequestsResponse>(
-        `${API_BASE_URL}/friends/requests`,
+        `${this.API_BASE_URL}/friends/requests`,
         { headers: this.getHeaders() }
       );
       return response;
@@ -297,7 +432,7 @@ export class ApiClient {
   async getAllUsers(): Promise<UsersResponse> {
     try {
       const response = await this.fetchWithRetry<UsersResponse>(
-        `${API_BASE_URL}/friends/users`,
+        `${this.API_BASE_URL}/friends/users`,
         { headers: this.getHeaders() }
       );
       return response;
@@ -310,7 +445,7 @@ export class ApiClient {
   async sendFriendRequest(userId: string) {
     try {
       const response = await this.fetchWithRetry<{ success: boolean; message?: string }>(
-        `${API_BASE_URL}/friends/request`,
+        `${this.API_BASE_URL}/friends/request`,
         {
           method: 'POST',
           headers: this.getHeaders(),
@@ -327,7 +462,7 @@ export class ApiClient {
   async acceptFriendRequest(userId: string) {
     try {
       const response = await this.fetchWithRetry<{ success: boolean; message?: string }>(
-        `${API_BASE_URL}/friends/accept`,
+        `${this.API_BASE_URL}/friends/accept`,
         {
           method: 'POST',
           headers: this.getHeaders(),
@@ -344,7 +479,7 @@ export class ApiClient {
   async declineFriendRequest(userId: string) {
     try {
       const response = await this.fetchWithRetry<{ success: boolean; message?: string }>(
-        `${API_BASE_URL}/friends/decline`,
+        `${this.API_BASE_URL}/friends/decline`,
         {
           method: 'POST',
           headers: this.getHeaders(),
@@ -361,7 +496,7 @@ export class ApiClient {
   async removeFriend(userId: string) {
     try {
       const response = await this.fetchWithRetry<{ success: boolean; message?: string }>(
-        `${API_BASE_URL}/friends/remove`,
+        `${this.API_BASE_URL}/friends/remove`,
         {
           method: 'POST',
           headers: this.getHeaders(),
@@ -377,31 +512,89 @@ export class ApiClient {
 
   // Debate API
   async joinDebate(id: string) {
-    const response = await fetch(`${API_BASE_URL}/debates/${id}/join`, {
-      method: 'POST'
-    });
-    return this.handleResponse(response);
+    try {
+      const response = await this.fetchWithRetry<{ success: boolean; debate: Debate }>(
+        `${this.API_BASE_URL}/debates/${id}/join`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Join debate error:', error);
+      throw error;
+    }
   }
 
   async leaveDebate(id: string) {
-    const response = await fetch(`${API_BASE_URL}/debates/${id}/leave`, {
-      method: 'POST',
-      headers: this.getHeaders()
-    });
-    return this.handleResponse(response);
+    try {
+      const response = await this.fetchWithRetry<{ success: boolean; debate: Debate }>(
+        `${this.API_BASE_URL}/debates/${id}/leave`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Leave debate error:', error);
+      throw error;
+    }
   }
 
-  async sendMessage(id: string, message: { text: string; translatedText?: string }) {
-    const response = await fetch(`${API_BASE_URL}/debates/${id}/messages`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(message)
-    });
-    return this.handleResponse(response);
+  async endDebate(id: string) {
+    try {
+      const response = await this.fetchWithRetry<{ success: boolean; debate: Debate }>(
+        `${this.API_BASE_URL}/debates/${id}/end`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('End debate error:', error);
+      throw error;
+    }
+  }
+
+  async sendMessage(id: string, message: { text: string; translatedText?: string; translatedTexts?: Record<string, string> }) {
+    try {
+      const response = await this.fetchWithRetry<{ success: boolean; message: Message }>(
+        `${this.API_BASE_URL}/debates/${id}/messages`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(message),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Send message error:', error);
+      throw error;
+    }
+  }
+
+  async translateText(text: string, sourceLang: string, targetLang: string) {
+    try {
+      const response = await this.fetchWithRetry<{ translatedText: string }>(
+        `${this.API_BASE_URL}/translate`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({ text, sourceLang, targetLang }),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Translation error:', error);
+      throw error;
+    }
   }
 
   async updateDebateStatus(id: string, status: string) {
-    const response = await fetch(`${API_BASE_URL}/debates/${id}/status`, {
+    const response = await fetch(`${this.API_BASE_URL}/debates/${id}/status`, {
       method: 'PATCH',
       headers: this.getHeaders(),
       body: JSON.stringify({ status })
@@ -409,13 +602,29 @@ export class ApiClient {
     return this.handleResponse(response);
   }
 
-  async updateDebateSettings(id: string, settings: any) {
-    const response = await fetch(`${API_BASE_URL}/debates/${id}/settings`, {
+  async updateDebateSettings(id: string, settings: DebateSettings) {
+    const response = await fetch(`${this.API_BASE_URL}/debates/${id}/settings`, {
       method: 'PATCH',
       headers: this.getHeaders(),
       body: JSON.stringify({ settings })
     });
     return this.handleResponse(response);
+  }
+
+  async getRecentConnections(): Promise<ConnectionsResponse> {
+    try {
+      const response = await this.fetchWithRetry<ConnectionsResponse>(
+        `${this.API_BASE_URL}/connections`,
+        {
+          method: 'GET',
+          headers: this.getHeaders(),
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error('Get recent connections error:', error);
+      throw error;
+    }
   }
 }
 
