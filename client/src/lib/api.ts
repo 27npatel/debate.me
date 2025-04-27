@@ -171,7 +171,7 @@ export class ApiClient {
     } else if (data.message) {
       errorMessage = data.message;
     } else if (data.errors && Array.isArray(data.errors)) {
-      errorMessage = data.errors.map((err: any) => err.msg || err.message).join(', ');
+      errorMessage = data.errors.map((err: { msg?: string; message?: string }) => err.msg || err.message).join(', ');
     }
     
     const error = new Error(errorMessage) as ApiError;
@@ -303,6 +303,36 @@ export class ApiClient {
           headers: this.getHeaders(),
         }
       );
+      
+      // Validate the response
+      if (!response.success || !response.user || !response.user._id) {
+        console.error('Invalid user data received from server:', response);
+        return {
+          success: false,
+          user: {
+            _id: '',
+            username: '',
+            name: '',
+            email: '',
+            preferredLanguage: 'en',
+            bio: '',
+            location: '',
+            avatar: '',
+            interests: [],
+            socialLinks: {},
+            rating: 1000,
+            debateStats: {
+              won: 0,
+              lost: 0,
+              drawn: 0
+            },
+            createdAt: '',
+            lastActive: ''
+          },
+          message: 'Invalid user data received from server'
+        };
+      }
+      
       return response;
     } catch (error) {
       // If server is not running or returns HTML, don't log out

@@ -597,8 +597,8 @@ export default function DebatePage({ params }: { params: PageParams }) {
   const activeParticipants = debate.participants.filter(p => p.isActive);
   const participantCount = activeParticipants.length;
 
-  const isHost = user._id === debate.host._id;
-  const isParticipant = debate.participants.some(p => p.user._id === user._id && p.isActive);
+  const isHost = user && user._id === debate.host._id;
+  const isParticipant = user && debate.participants.some(p => p.user._id === user._id && p.isActive);
   const canSendMessages = debate.status === 'active' && isParticipant && 
     (!debate.startTime || new Date(debate.startTime) <= new Date());
 

@@ -41,12 +41,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api.setToken(token);
       const response = await api.getCurrentUser();
       
-      if (response.success) {
+      if (response.success && response.user && response.user._id) {
         setUser(response.user);
       } else {
         // Clear token if the response indicates failure
+        console.error('Auth check failed: Invalid user data', response);
         localStorage.removeItem('token');
         api.setToken(null);
+        setUser(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -54,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Only clear token on client-side
         localStorage.removeItem('token');
         api.setToken(null);
+        setUser(null);
       }
     } finally {
       setIsLoading(false);
@@ -62,16 +65,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const { user, token } = await api.login({ email, password });
-      if (token) {
-        localStorage.setItem('token', token);
-        api.setToken(token);
+      const response = await api.login({ email, password });
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Login failed');
       }
-      setUser(user);
+      
+      if (!response.user || !response.user._id) {
+        console.error('Invalid user data received from server:', response);
+        throw new Error('Invalid user data received from server');
+      }
+      
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+        api.setToken(response.token);
+      } else {
+        console.error('No token received from server');
+        throw new Error('Authentication failed: No token received');
+      }
+      
+      setUser(response.user);
       router.push('/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
-      throw error;
+      if (error instanceof Error) {
+        throw new Error(error.message);
+      }
+      throw new Error('An unexpected error occurred during login');
     }
   };
 
@@ -91,12 +111,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       if (!response.user || !response.user._id) {
+        console.error('Invalid user data received from server:', response);
         throw new Error('Invalid user data received from server');
       }
       
       if (response.token) {
         localStorage.setItem('token', response.token);
         api.setToken(response.token);
+      } else {
+        console.error('No token received from server');
+        throw new Error('Authentication failed: No token received');
       }
       
       setUser(response.user);
