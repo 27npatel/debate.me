@@ -25,6 +25,88 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/auth-context";
 
+// Interface for debate object
+interface Debate {
+  id: string;
+  title: string;
+  description: string;
+  participants: number;
+  languages: string[];
+  topics: string[];
+  status: string;
+  startTime: string;
+  capacity: number;
+}
+
+// Debate card component
+function DebateCard({ debate }: { debate: Debate }) {
+  const isLive = debate.status === 'active';
+  
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <Badge 
+            variant="secondary" 
+            className={isLive ? "bg-green-500/10 text-green-500" : "bg-yellow-500/10 text-yellow-500"}
+          >
+            {isLive ? 'Live' : 'Scheduled'}
+          </Badge>
+          <div className="flex items-center text-xs text-muted-foreground">
+            {isLive ? (
+              <>
+                <Users className="mr-1 h-3 w-3" />
+                {debate.participants}/{debate.capacity}
+              </>
+            ) : (
+              <>
+                <Calendar className="mr-1 h-3 w-3" />
+                {debate.startTime}
+              </>
+            )}
+          </div>
+        </div>
+        <CardTitle className="line-clamp-1 text-lg">{debate.title}</CardTitle>
+        <CardDescription className="line-clamp-2">
+          {debate.description}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pb-2">
+        <div className="space-y-2 text-sm">
+          <div className="flex items-start gap-1">
+            <Globe className="mt-0.5 h-3 w-3 text-muted-foreground" />
+            <span className="text-muted-foreground">{debate.languages.join(", ")}</span>
+          </div>
+          {!isLive && (
+            <div className="flex items-center gap-1">
+              <Users className="h-3 w-3 text-muted-foreground" />
+              <span className="text-muted-foreground">{debate.participants} registered</span>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-1">
+            {debate.topics.map(topic => (
+              <Badge key={`${debate.id}-${topic}`} variant="outline" className="text-xs">
+                {topic}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="pt-2">
+        <Button asChild className="w-full" size="sm" variant={isLive ? "default" : "outline"}>
+          <Link href={`/dashboard/debates/${debate.id}`}>
+            {isLive ? (
+              <>Join Now <ArrowUpRight className="ml-1 h-3 w-3" /></>
+            ) : (
+              'Register'
+            )}
+          </Link>
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
 // Mock user data
 const mockUser = {
   _id: "1",
@@ -199,28 +281,22 @@ export default function DiscoverPage() {
   return (
     <DashboardLayout user={user || mockUser}>
       <div className="space-y-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Discover Debates</h1>
-            <p className="text-muted-foreground">
-              Find and join conversations on topics that interest you
-            </p>
-          </div>
-          <Button asChild>
-            <Link href="/dashboard/debates/create">
-              Create New Debate
-            </Link>
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Discover Debates</h1>
+          <p className="text-muted-foreground">
+            Find and join conversations on topics that interest you
+          </p>
         </div>
 
-        {/* Search and filters */}
-        <div className="grid gap-4 md:grid-cols-[280px_1fr]">
+        <div className="grid gap-6" style={{ gridTemplateColumns: "280px 1fr" }}>
+          {/* Filters sidebar */}
           <Card className="h-fit">
             <CardHeader>
               <CardTitle>Filters</CardTitle>
               <CardDescription>Refine your search</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Filter by Topics */}
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">Topics</h3>
                 <div className="flex flex-wrap gap-2">
@@ -237,6 +313,7 @@ export default function DiscoverPage() {
                 </div>
               </div>
 
+              {/* Filter by Languages */}
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">Languages</h3>
                 <div className="flex flex-wrap gap-2">
@@ -253,166 +330,82 @@ export default function DiscoverPage() {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium">Participants</h3>
-                  <span className="text-xs text-muted-foreground">
-                    {participantRange[0]} - {participantRange[1]}
-                  </span>
+              {/* Filter by Participants */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Participants</h3>
+                <div className="space-y-1">
+                  <Slider
+                    value={participantRange}
+                    min={0}
+                    max={15}
+                    step={1}
+                    onValueChange={setParticipantRange}
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{participantRange[0]} - {participantRange[1]}</span>
+                  </div>
                 </div>
-                <Slider
-                  value={participantRange}
-                  min={0}
-                  max={20}
-                  step={1}
-                  onValueChange={setParticipantRange}
-                />
               </div>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full" onClick={resetFilters}>
+
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={resetFilters}
+              >
                 Reset Filters
               </Button>
-            </CardFooter>
+            </CardContent>
           </Card>
 
+          {/* Main content */}
           <div className="space-y-6">
-            <div className="flex w-full items-center space-x-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search debates by title, description, or topic"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1"
-              />
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search debates by title, description, or topic"
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Link href="/dashboard/debates/create">
+                <Button>
+                  Create New Debate
+                </Button>
+              </Link>
             </div>
 
             <Tabs defaultValue="active">
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="active" className="flex gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  Live Debates
-                </TabsTrigger>
-                <TabsTrigger value="scheduled" className="flex gap-2">
-                  <div className="h-2 w-2 rounded-full bg-yellow-500" />
-                  Scheduled Debates
-                </TabsTrigger>
+              <TabsList>
+                <TabsTrigger value="active">Live Debates</TabsTrigger>
+                <TabsTrigger value="scheduled">Scheduled Debates</TabsTrigger>
               </TabsList>
-
-              <TabsContent value="active" className="pt-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {filterDebates('active').map(debate => (
-                    <Card key={debate.id} className="overflow-hidden">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className="bg-green-500/10 text-green-500">Live</Badge>
-                          <div className="flex items-center text-xs text-muted-foreground">
-                            <Users className="mr-1 h-3 w-3" />
-                            {debate.participants}/{debate.capacity}
-                          </div>
-                        </div>
-                        <CardTitle className="line-clamp-1 text-lg">{debate.title}</CardTitle>
-                        <CardDescription className="line-clamp-2">
-                          {debate.description}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pb-2">
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-start gap-1">
-                            <Globe className="mt-0.5 h-3 w-3 text-muted-foreground" />
-                            <span className="text-muted-foreground">{debate.languages.join(", ")}</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {debate.topics.map(topic => (
-                              <Badge key={`${debate.id}-${topic}`} variant="outline" className="text-xs">
-                                {topic}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="pt-2">
-                        <Button asChild className="w-full" size="sm">
-                          <Link href={`/dashboard/debates/${debate.id}`}>
-                            Join Now <ArrowUpRight className="ml-1 h-3 w-3" />
-                          </Link>
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
-                </div>
-
-                {filterDebates('active').length === 0 && (
-                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-                    <MessageSquare className="h-10 w-10 text-muted-foreground" />
-                    <h3 className="mt-4 text-lg font-semibold">No active debates found</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Try adjusting your filters or check back later for new debates.
+              <TabsContent value="active" className="space-y-4 pt-4">
+                {filterDebates("active").length > 0 ? (
+                  filterDebates("active").map(debate => (
+                    <DebateCard key={debate.id} debate={debate} />
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-dashed p-8 text-center">
+                    <h3 className="text-lg font-medium">No active debates found</h3>
+                    <p className="text-muted-foreground">
+                      Try adjusting your filters or create your own debate!
                     </p>
-                    <Button asChild className="mt-4">
-                      <Link href="/dashboard/debates/create">Create Your Own</Link>
-                    </Button>
                   </div>
                 )}
               </TabsContent>
-
-              <TabsContent value="scheduled" className="pt-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {filterDebates('scheduled').map(debate => (
-                    <Card key={debate.id} className="overflow-hidden">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-500">Scheduled</Badge>
-                          <div className="flex items-center text-xs text-muted-foreground">
-                            <Calendar className="mr-1 h-3 w-3" />
-                            {debate.startTime}
-                          </div>
-                        </div>
-                        <CardTitle className="line-clamp-1 text-lg">{debate.title}</CardTitle>
-                        <CardDescription className="line-clamp-2">
-                          {debate.description}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pb-2">
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-start gap-1">
-                            <Globe className="mt-0.5 h-3 w-3 text-muted-foreground" />
-                            <span className="text-muted-foreground">{debate.languages.join(", ")}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Users className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-muted-foreground">{debate.participants} registered</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {debate.topics.map(topic => (
-                              <Badge key={`${debate.id}-${topic}`} variant="outline" className="text-xs">
-                                {topic}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="pt-2">
-                        <Button asChild className="w-full" size="sm" variant="outline">
-                          <Link href={`/dashboard/debates/${debate.id}`}>
-                            Register
-                          </Link>
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
-                </div>
-
-                {filterDebates('scheduled').length === 0 && (
-                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-                    <Calendar className="h-10 w-10 text-muted-foreground" />
-                    <h3 className="mt-4 text-lg font-semibold">No scheduled debates found</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Try adjusting your filters or check back later for new scheduled debates.
+              <TabsContent value="scheduled" className="space-y-4 pt-4">
+                {filterDebates("scheduled").length > 0 ? (
+                  filterDebates("scheduled").map(debate => (
+                    <DebateCard key={debate.id} debate={debate} />
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-dashed p-8 text-center">
+                    <h3 className="text-lg font-medium">No scheduled debates found</h3>
+                    <p className="text-muted-foreground">
+                      Try adjusting your filters or check back later!
                     </p>
-                    <Button asChild className="mt-4">
-                      <Link href="/dashboard/debates/create">Schedule a Debate</Link>
-                    </Button>
                   </div>
                 )}
               </TabsContent>

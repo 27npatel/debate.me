@@ -99,14 +99,9 @@ export function DashboardLayout({ children, user }: DashboardLayoutProps) {
       title: "Dashboard"
     },
     {
-      href: "/dashboard/debates",
-      icon: <MessageSquare className="h-4 w-4" />,
-      title: "Debates"
-    },
-    {
       href: "/dashboard/discover",
       icon: <Globe className="h-4 w-4" />,
-      title: "Discover"
+      title: "Discover Debates"
     },
     {
       href: "/dashboard/connections",
