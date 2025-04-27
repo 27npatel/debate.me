@@ -47,7 +47,7 @@ export function Footer() {
           <div className="flex flex-col items-center gap-4 sm:items-start">
             <Link href="/" className="flex items-center space-x-2">
               <Globe className="h-5 w-5 text-primary" />
-              <span className="text-lg font-semibold">Langlobe</span>
+              <span className="text-lg font-semibold">Debatably</span>
             </Link>
             <p className="text-center text-sm text-muted-foreground sm:text-left">
               Breaking language barriers with real-time translation for cross-cultural dialogue.
@@ -74,7 +74,7 @@ export function Footer() {
         </div>
         <div className="mt-8 border-t pt-8">
           <p className="text-center text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} Langlobe. All rights reserved.
+            &copy; {new Date().getFullYear()} Debatably. All rights reserved.
           </p>
         </div>
       </div>

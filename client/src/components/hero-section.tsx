@@ -37,7 +37,7 @@ export function HeroSection() {
                 <span className="gradient-text">Real-Time Translation</span>
               </h1>
               <p className="max-w-[700px] text-lg text-muted-foreground md:text-xl">
-                Langlobe creates live debate rooms where speech is transcribed, translated, and
+                Debatably creates live debate rooms where speech is transcribed, translated, and
                 described in participants' native tongues in real time.
               </p>
             </div>

@@ -8,7 +8,7 @@ import { Quote } from "lucide-react";
 const testimonials = [
   {
     quote:
-      "Langlobe has revolutionized our international meetings. We can now have seamless conversations with partners across four different countries.",
+      "Debatably has revolutionized our international meetings. We can now have seamless conversations with partners across four different countries.",
     author: "Sarah Johnson",
     role: "Global Marketing Director",
     avatar: "/avatars/sarah.png",
@@ -16,7 +16,7 @@ const testimonials = [
   },
   {
     quote:
-      "As a language teacher, I've found Langlobe to be an incredible tool for my students to practice with native speakers without the usual communication barriers.",
+      "As a language teacher, I've found Debatably to be an incredible tool for my students to practice with native speakers without the usual communication barriers.",
     author: "Carlos Mendez",
     role: "Spanish Language Professor",
     avatar: "/avatars/carlos.png",
