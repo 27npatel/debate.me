@@ -339,18 +339,15 @@ export default function DebatePage({ params }: { params: PageParams }) {
     }
 
     try {
-      // Get the current user's preferred language
-      const currentUserLang = user.preferredLanguage || 'en';
-      
       // Find other participants with different languages
       const otherParticipants = debate.participants
         .filter(p => p.isActive && p.user._id !== user._id)
         .map(p => p.user);
 
-      // Prepare translations for each participant
       const translatedTexts: Record<string, string> = {};
-      
-      // Always translate to each participant's preferred language
+      const currentUserLang = user.preferredLanguage || 'en';
+
+      // Translate message for each participant with a different language
       for (const participant of otherParticipants) {
         const targetLang = participant.preferredLanguage || 'en';
         if (targetLang !== currentUserLang) {
@@ -396,11 +393,12 @@ export default function DebatePage({ params }: { params: PageParams }) {
         translatedTexts
       }) as MessageResponse;
 
-      if (response.success && response.message) {
-        // Emit message through socket
-        if (socket) {
-          socket.emit('send-message', { debateId: debate._id, message: response.message });
-        }
+      // Emit message through socket
+      if (socket) {
+        socket.emit('send-message', { 
+          debateId: debate._id, 
+          message: tempMessage 
+        });
       } else {
         toast.error("Failed to send message");
       }

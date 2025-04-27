@@ -44,7 +44,15 @@ export const useDebateSocket = (
     socket.on('new-message', (message) => {
       console.log('Received new message:', message);
       if (message && typeof message === 'object') {
-        onMessage(message);
+        // Ensure the message has all required fields
+        const validMessage = {
+          ...message,
+          timestamp: message.timestamp || new Date().toISOString(),
+          user: message.user || null,
+          text: message.text || '',
+          translatedTexts: message.translatedTexts || {}
+        };
+        onMessage(validMessage);
       } else {
         console.error('Invalid message format received:', message);
       }

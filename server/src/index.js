@@ -24,7 +24,10 @@ const io = new Server(httpServer, {
     origin: process.env.CLIENT_URL || 'http://localhost:3000',
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  pingTimeout: 120000, // 120 seconds
+  pingInterval: 25000, // 25 seconds
+  connectTimeout: 120000 // 120 seconds
 });
 
 // Middleware
@@ -69,8 +72,21 @@ io.on('connection', (socket) => {
   // Handle send-message event
   socket.on('send-message', ({ debateId, message }) => {
     console.log(`Broadcasting message to debate: ${debateId}`);
+    // Validate message format
+    if (!message || !message.text || !message.user) {
+      console.error('Invalid message format:', message);
+      return;
+    }
+    
+    // Ensure message has required fields
+    const validMessage = {
+      ...message,
+      timestamp: message.timestamp || new Date().toISOString(),
+      translatedTexts: message.translatedTexts || {}
+    };
+    
     // Emit to all clients in the debate room, including the sender
-    io.to(`debate:${debateId}`).emit('new-message', message);
+    io.to(`debate:${debateId}`).emit('new-message', validMessage);
   });
 
   socket.on('disconnect', () => {
@@ -91,6 +107,10 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Set server timeouts
+httpServer.keepAliveTimeout = 120000; // 120 seconds
+httpServer.headersTimeout = 120000; // 120 seconds
+
 // Connect to MongoDB
 mongoose.connect(config.mongodb.uri, config.mongodb.options)
   .then(() => {
@@ -98,8 +118,9 @@ mongoose.connect(config.mongodb.uri, config.mongodb.options)
     
     // Start server
     const PORT = process.env.PORT || config.server.port;
-    httpServer.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+    const HOST = '0.0.0.0';
+    httpServer.listen(PORT, HOST, () => {
+      console.log(`Server is running on http://${HOST}:${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     });
   })
