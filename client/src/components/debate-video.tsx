@@ -110,16 +110,19 @@ const DebateVideoClient = ({ debateId, onTranscriptUpdate }: DebateVideoProps) =
   useEffect(() => {
     const loadAgoraSDK = async () => {
       try {
-        // First try to import the module
+        // Use a more compatible approach to import the SDK
         const AgoraRTCModule = await import("agora-rtc-sdk-ng");
-        if (!AgoraRTCModule || !AgoraRTCModule.default) {
+        const AgoraRTC = AgoraRTCModule.default || AgoraRTCModule;
+        
+        if (!AgoraRTC) {
           throw new Error("Failed to load Agora SDK module");
         }
-        setAgoraRTC(AgoraRTCModule.default);
+        
+        setAgoraRTC(AgoraRTC);
         
         // Initialize client with error handling
         try {
-          const rtcClient = AgoraRTCModule.default.createClient({
+          const rtcClient = AgoraRTC.createClient({
             mode: "rtc",
             codec: "vp8",
           });
