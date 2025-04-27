@@ -69,7 +69,7 @@ export function Header({ isLoggedIn = false, userDisplayName, userAvatar }: Head
       <div className="container flex h-16 items-center px-4 sm:px-8 lg:px-10">
         <Link href="/" className="flex items-center space-x-2">
           <Globe className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold">Langlobe</span>
+          <span className="text-xl font-bold">Debatably</span>
         </Link>
 
         <nav className="ml-auto hidden space-x-4 md:flex">
@@ -142,7 +142,7 @@ export function Header({ isLoggedIn = false, userDisplayName, userAvatar }: Head
                   onClick={() => setOpen(false)}
                 >
                   <Globe className="h-6 w-6 text-primary" />
-                  <span className="font-bold">Langlobe</span>
+                  <span className="font-bold">Debatably</span>
                 </Link>
                 <Button
                   variant="ghost"
