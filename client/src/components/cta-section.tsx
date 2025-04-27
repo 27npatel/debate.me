@@ -4,8 +4,10 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { useState } from "react";
 
 export function CTASection() {
+  const [showDemo, setShowDemo] = useState(false);
   return (
     <section className="gradient-bg relative py-20 md:py-24 lg:py-28">
       <div className="absolute inset-0 bg-grid-white/10 bg-[length:20px_20px] opacity-10" />
@@ -32,15 +34,36 @@ export function CTASection() {
             <Button
               variant="outline"
               size="lg"
-              asChild
+              type="button"
               className="border-white bg-white/20 text-blue-900 hover:bg-white/40 hover:text-blue-800 transition-colors"
+              onClick={() => setShowDemo(true)}
             >
-              <Link href="/demo">
-                See Demo
-              </Link>
+              See Demo
             </Button>
           </div>
         </motion.div>
+        {showDemo && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+            <div className="relative bg-white rounded-lg shadow-lg max-w-2xl w-full p-4">
+              <button
+                className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl"
+                onClick={() => setShowDemo(false)}
+                aria-label="Close"
+              >
+                &times;
+              </button>
+              <div className="aspect-w-16 aspect-h-9 w-full">
+                <iframe
+                  src="https://www.loom.com/embed/4e15853c19314fb2812a110adaaa4385"
+                  frameBorder="0"
+                  allowFullScreen
+                  className="w-full h-96 rounded-lg"
+                  title="Demo Video"
+                ></iframe>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
