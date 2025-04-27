@@ -77,9 +77,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (data: { username: string; name: string; email: string; password: string; preferredLanguage: string }) => {
     try {
-      const { user } = await api.signup(data);
-      setUser(user);
-      router.push('/dashboard');
+      const response = await api.signup(data);
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+        api.setToken(response.token);
+      }
+      if (response.user) {
+        setUser(response.user);
+        router.push('/dashboard');
+      } else {
+        throw new Error('User data not received from server');
+      }
     } catch (error) {
       console.error('Signup failed:', error);
       throw error;

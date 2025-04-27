@@ -48,6 +48,7 @@ export interface AuthResponse {
   success: boolean;
   token?: string;
   user: User;
+  message?: string;
 }
 
 interface FriendsResponse {
@@ -230,6 +231,14 @@ export class ApiClient {
         }
       );
 
+      if (!response.success) {
+        throw new Error(response.message || 'Signup failed');
+      }
+
+      if (!response.user || !response.user._id) {
+        throw new Error('Invalid user data received from server');
+      }
+
       if (response.token) {
         this.setToken(response.token);
       }
@@ -237,7 +246,10 @@ export class ApiClient {
       return response;
     } catch (error) {
       console.error('Signup error:', error);
-      throw error;
+      if (error instanceof Error) {
+        throw new Error(error.message || 'Signup failed. Please try again.');
+      }
+      throw new Error('An unexpected error occurred during signup');
     }
   }
 
@@ -301,7 +313,8 @@ export class ApiClient {
             },
             createdAt: '',
             lastActive: ''
-          }
+          },
+          message: 'Server error. Please try again later.'
         };
       }
       throw error;
