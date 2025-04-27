@@ -221,6 +221,7 @@ export default function CreateDebatePage() {
                     <Label htmlFor="title">Title</Label>
                     <Input
                       id="title"
+                      name="title"
                       placeholder="Enter a clear, descriptive title"
                       value={title}
                       onChange={handleChange}
@@ -234,6 +235,7 @@ export default function CreateDebatePage() {
                     </Label>
                     <Textarea
                       id="description"
+                      name="description"
                       placeholder="Describe what your debate is about"
                       rows={4}
                       value={description}
@@ -398,6 +400,7 @@ export default function CreateDebatePage() {
                   <div className="flex gap-2">
                     <Input
                       ref={inviteInputRef}
+                      name="inviteEntry"
                       value={inviteEntry}
                       onChange={handleChange}
                       onKeyDown={e => {
