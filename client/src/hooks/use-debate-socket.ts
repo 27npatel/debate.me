@@ -25,13 +25,12 @@ export const useDebateSocket = (
       return;
     }
 
-    // Connect to WebSocket server with the correct URL
+    // Connect to WebSocket server with the correct URL - using default namespace
     const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001', {
       withCredentials: true,
       reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      query: { debateId }
+      reconnectionDelay: 1000
     });
 
     socketRef.current = socket;
@@ -98,15 +97,6 @@ export const useDebateSocket = (
     return () => {
       // Clean up
       socket.emit('leave-debate', { debateId });
-      socket.off('new-message');
-      socket.off('participant-joined');
-      socket.off('participant-left');
-      socket.off('status-updated');
-      socket.off('settings-updated');
-      socket.off('connect');
-      socket.off('connect_error');
-      socket.off('disconnect');
-      socket.off('error');
       socket.disconnect();
     };
   }, [debateId, onMessage, onParticipantJoined, onParticipantLeft, onStatusUpdated, onSettingsUpdated]);

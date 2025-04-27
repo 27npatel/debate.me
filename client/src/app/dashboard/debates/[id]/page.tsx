@@ -330,10 +330,17 @@ export default function DebatePage({ params }: { params: PageParams }) {
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || !debate || !user) return;
+    if (!message.trim() || !debate || !user) {
+      console.log('Cannot send message: missing required data', { 
+        hasMessage: !!message.trim(), 
+        hasDebate: !!debate, 
+        hasUser: !!user 
+      });
+      return;
+    }
     
     // Check if user is a participant
-    const isParticipant = debate.participants.some(p => p.user._id === user._id && p.isActive);
+    const isParticipant = debate.participants.some(p => p.user && p.user._id === user._id && p.isActive);
     if (!isParticipant) {
       toast.error("You must be a participant to send messages");
       return;
@@ -597,8 +604,8 @@ export default function DebatePage({ params }: { params: PageParams }) {
   const activeParticipants = debate.participants.filter(p => p.isActive);
   const participantCount = activeParticipants.length;
 
-  const isHost = user && user._id === debate.host._id;
-  const isParticipant = user && debate.participants.some(p => p.user._id === user._id && p.isActive);
+  const isHost = user && debate && user._id === debate.host._id;
+  const isParticipant = user && debate && debate.participants.some(p => p.user && p.user._id === user._id && p.isActive);
   const canSendMessages = debate.status === 'active' && isParticipant && 
     (!debate.startTime || new Date(debate.startTime) <= new Date());
 
