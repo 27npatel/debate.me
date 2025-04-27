@@ -154,7 +154,8 @@ export class ApiClient {
         throw new Error('Server returned non-JSON response');
       }
     } catch (error) {
-      const apiError = new Error('Server error') as ApiError;
+      console.error('Error parsing response:', error);
+      const apiError = new Error('Server error: Unable to parse response') as ApiError;
       apiError.status = response.status;
       throw apiError;
     }
@@ -172,6 +173,14 @@ export class ApiClient {
       errorMessage = data.message;
     } else if (data.errors && Array.isArray(data.errors)) {
       errorMessage = data.errors.map((err: { msg?: string; message?: string }) => err.msg || err.message).join(', ');
+    } else if (response.status >= 500) {
+      errorMessage = 'Server error: Please try again later';
+    } else if (response.status === 404) {
+      errorMessage = 'Resource not found';
+    } else if (response.status === 401) {
+      errorMessage = 'Unauthorized: Please login again';
+    } else if (response.status === 403) {
+      errorMessage = 'Forbidden: You do not have permission to access this resource';
     }
     
     const error = new Error(errorMessage) as ApiError;

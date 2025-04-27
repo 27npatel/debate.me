@@ -184,6 +184,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        
         const [debatesResponse, connectionsResponse] = await Promise.all([
           api.getDebates(),
           api.getRecentConnections()
@@ -191,6 +194,8 @@ export default function DashboardPage() {
 
         if (debatesResponse.success && debatesResponse.debates) {
           setDebates(debatesResponse.debates);
+        } else {
+          throw new Error('Failed to load debates');
         }
 
         if (connectionsResponse.success && connectionsResponse.connections) {
@@ -221,10 +226,14 @@ export default function DashboardPage() {
             }));
 
           setConnections(formattedConnections);
+        } else {
+          throw new Error('Failed to load connections');
         }
       } catch (err) {
         console.error('Error in fetchData:', err);
-        setError("Failed to load data");
+        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }

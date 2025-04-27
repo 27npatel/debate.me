@@ -1,21 +1,42 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
+interface User {
+  _id: string;
+  name: string;
+  avatar?: string;
+  preferredLanguage?: string;
+}
+
+interface Message {
+  user: User;
+  text: string;
+  translatedTexts?: Record<string, string>;
+  timestamp: string;
+}
+
+interface DebateParticipant {
+  user: User;
+  joinedAt: string;
+  leftAt?: string;
+  isActive: boolean;
+}
+
 interface DebateSocketEvents {
-  'new-message': (message: any) => void;
-  'participant-joined': (data: { participant: any }) => void;
+  'new-message': (message: Message) => void;
+  'participant-joined': (data: { participant: DebateParticipant }) => void;
   'participant-left': (data: { participantId: string }) => void;
   'status-updated': (data: { status: string; endTime?: Date }) => void;
-  'settings-updated': (settings: any) => void;
+  'settings-updated': (settings: { allowAnonymous: boolean; requireApproval: boolean; autoTranslate: boolean }) => void;
 }
 
 export const useDebateSocket = (
   debateId: string,
-  onMessage: (message: any) => void,
-  onParticipantJoined: (participant: any) => void,
+  onMessage: (message: Message) => void,
+  onParticipantJoined: (participant: DebateParticipant) => void,
   onParticipantLeft: (participantId: string) => void,
   onStatusUpdated: (status: string, endTime?: Date) => void,
-  onSettingsUpdated: (settings: any) => void
+  onSettingsUpdated: (settings: { allowAnonymous: boolean; requireApproval: boolean; autoTranslate: boolean }) => void
 ) => {
   const socketRef = useRef<Socket | null>(null);
 
@@ -25,10 +46,9 @@ export const useDebateSocket = (
       return;
     }
 
-    // Connect to WebSocket server with the correct URL - using default namespace
     const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL!;
     const socket = io(SOCKET_URL, {
-      path: '/socket.io',       // matches your server’s default
+      path: '/socket.io',
       withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -43,11 +63,11 @@ export const useDebateSocket = (
     console.log('Joining debate room:', debateId);
 
     // Set up event listeners
-    socket.on('new-message', (message) => {
+    socket.on('new-message', (message: Message) => {
       console.log('Received new message:', message);
       if (message && typeof message === 'object') {
         // Ensure the message has all required fields
-        const validMessage = {
+        const validMessage: Message = {
           ...message,
           timestamp: message.timestamp || new Date().toISOString(),
           user: message.user || null,
@@ -60,22 +80,22 @@ export const useDebateSocket = (
       }
     });
 
-    socket.on('participant-joined', (data) => {
+    socket.on('participant-joined', (data: { participant: DebateParticipant }) => {
       console.log('Participant joined:', data);
       onParticipantJoined(data.participant);
     });
 
-    socket.on('participant-left', (data) => {
+    socket.on('participant-left', (data: { participantId: string }) => {
       console.log('Participant left:', data);
       onParticipantLeft(data.participantId);
     });
 
-    socket.on('status-updated', (data) => {
+    socket.on('status-updated', (data: { status: string; endTime?: Date }) => {
       console.log('Status updated:', data);
       onStatusUpdated(data.status, data.endTime);
     });
 
-    socket.on('settings-updated', (settings) => {
+    socket.on('settings-updated', (settings: { allowAnonymous: boolean; requireApproval: boolean; autoTranslate: boolean }) => {
       console.log('Settings updated:', settings);
       onSettingsUpdated(settings);
     });
@@ -83,6 +103,8 @@ export const useDebateSocket = (
     // Handle connection events
     socket.on('connect', () => {
       console.log('Socket connected to server');
+      // Re-join debate room on reconnect
+      socket.emit('join-debate', { debateId });
     });
 
     socket.on('connect_error', (error) => {

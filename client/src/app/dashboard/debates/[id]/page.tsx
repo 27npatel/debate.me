@@ -142,11 +142,16 @@ export default function DebatePage({ params }: { params: PageParams }) {
         return prev;
       }
 
+      // Create a new messages array with the new message
+      const updatedMessages = [...prev.messages, newMessage];
+      
+      // Update the debate state with new messages
       return {
         ...prev,
-        messages: [...prev.messages, newMessage]
+        messages: updatedMessages
       };
     });
+
     // Scroll to bottom after a short delay to ensure the new message is rendered
     setTimeout(scrollToBottom, 100);
   }, [scrollToBottom]);
